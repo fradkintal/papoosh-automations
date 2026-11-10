@@ -1,0 +1,20 @@
+{
+  "name": "PAPOOSH • פפוש אוטומציות",
+  "short_name": "PAPOOSH",
+  "description": "מרכז שליטה ובקרה לאוטומציות אישיות ועסקיות - טל פרדקין",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070B14",
+  "theme_color": "#070B14",
+  "dir": "rtl",
+  "lang": "he",
+  "icons": [
+    {
+      "src": "./papoosh-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

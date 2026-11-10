@@ -1,0 +1,24 @@
+{
+  "name": "papoosh-automations",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PAPOOSH Automations - Personal Automation Command Center & Mobile Hub for Tal Fradkin",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "node scripts/bump-version.js && vite build && node scripts/build-standalone-iphone.js",
+    "preview": "vite preview --host",
+    "report": "node agent/papoosh-cli.js",
+    "run-all": "node agent/run-automations.js",
+    "release": "node scripts/bump-version.js --patch && vite build && node scripts/build-standalone-iphone.js"
+  },
+  "dependencies": {
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "vite": "^5.4.11"
+  }
+}

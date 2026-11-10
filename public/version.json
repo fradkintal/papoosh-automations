@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "buildNumber": 2,
+  "releasedAt": "2026-11-10T10:12:41.328Z",
+  "environment": "production",
+  "codename": "PAPOOSH Neon Core",
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-11-10",
+      "title": "השקת PAPOOSH אוטומציות - גרסה ראשונה במחשב הנייח החדש",
+      "highlights": [
+        "מרכז שליטה צבעוני מותאם לאייפון (PWA + קובץ עצמאי להורדה ישירה)",
+        "חיבור ניטור ל-Finance Aggregator, תיבת Gmail, יומן Google ומאגרי Git ב-PROGRAMS",
+        "מערכת ניהול גרסאות חכמה עם בדיקת עדכונים אוטומטית וניקוי מטמון (Cache Busting)",
+        "סוכן דיווח מקומי (Papoosh Agent SDK & CLI) שמאפשר לכל אוטומציה במחשב לדווח בזמן אמת"
+      ]
+    }
+  ]
+}
