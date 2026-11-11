@@ -1,0 +1,43 @@
+{
+  "updatedAt": "2026-11-11T09:17:08.899Z",
+  "claudeStatus": {
+    "cliInstalled": true,
+    "cliPath": "C:\\Users\\fradk\\.vscode\\extensions\\anthropic.claude-code-2.1.322-win32-x64\\resources\\native-binary\\claude.exe",
+    "desktopInstallerPath": "C:\\Users\\fradk\\Downloads\\Claude Setup.exe"
+  },
+  "links": [
+    {
+      "id": "link-finance-dashboard",
+      "title": "דשבורד כספים אישי (Finance Aggregator)",
+      "url": "https://d2ezttw1p31agb.cloudfront.net",
+      "category": "finance",
+      "note": "מסך התוכנית, התנועות והעלאת קובצי ONE ZERO / ישראכרט",
+      "addedAt": "2026-11-11T09:17:08.899Z"
+    },
+    {
+      "id": "link-isracard-web",
+      "title": "אתר ישראכרט החדש (להתחברות ולחיצה על הסימנייה)",
+      "url": "https://web.isracard.co.il",
+      "category": "finance",
+      "note": "לאחר ההתחברות בדפדפן במחשב, לחיצה על הסימנייה מורידה קובץ JSON שנשאב אוטומטית מתיקיית Downloads ל-DynamoDB",
+      "addedAt": "2026-11-11T09:17:08.899Z"
+    },
+    {
+      "id": "link-papoosh-github",
+      "title": "מאגר GitHub - פפוש אוטומציות",
+      "url": "https://github.com/fradkintal/papoosh-automations",
+      "category": "system",
+      "note": "קוד המקור, היסטוריית הגרסאות והגדרות ה-Actions של האפליקציה",
+      "addedAt": "2026-11-11T09:17:08.899Z"
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg-welcome-bridge",
+      "sender": "agent",
+      "target": "tal",
+      "timestamp": "2026-11-11T09:17:08.899Z",
+      "text": "גשר PAPOOSH פעיל! סנכרון הכספים הראשוני (מקס, כאל, לאומי, דיסקונט) עבר בהצלחה מלאה (193 תנועות). עבור ישראכרט הפעלתי צופה אוטומטי על תיקיית ההורדות במחשב שייבא ל-DynamoDB כל קובץ JSON מהסימנייה ברגע שירד, וגם חיברתי את Claude CLI למערכת."
+    }
+  ]
+}

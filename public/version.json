@@ -1,10 +1,18 @@
 {
-  "version": "1.0.1",
-  "buildNumber": 3,
-  "releasedAt": "2026-11-10T13:39:02.095Z",
+  "version": "1.1.0",
+  "buildNumber": 4,
+  "releasedAt": "2026-11-11T09:17:09.080Z",
   "environment": "production",
   "codename": "PAPOOSH Neon Core",
   "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-11-11",
+      "title": "חיבור גשר חי (Bridge), הסרת כפתורי הורדה, שאיבה אוטומטית לישראכרט וחיבור ל-Claude",
+      "highlights": [
+        "חיבור גשר חי (Bridge), הסרת כפתורי הורדה, שאיבה אוטומטית לישראכרט וחיבור ל-Claude"
+      ]
+    },
     {
       "version": "1.0.1",
       "date": "2026-11-10",

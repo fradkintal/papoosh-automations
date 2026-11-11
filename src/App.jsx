@@ -6,8 +6,6 @@ import {
   XCircle,
   Clock,
   RefreshCw,
-  Smartphone,
-  Download,
   Terminal,
   Wallet,
   Mail,
@@ -24,7 +22,11 @@ import {
   Copy,
   Check,
   Layers,
-  Bell
+  Bell,
+  MessageSquare,
+  Send,
+  Link2,
+  Bot
 } from 'lucide-react';
 import { APP_VERSION } from './version.js';
 
@@ -34,18 +36,18 @@ const CATEGORY_META = {
   email: { label: 'מיילים וחשבוניות', icon: Mail, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)' },
   business: { label: 'אל סול והצוות', icon: Building2, color: '#e879f9', bg: 'rgba(232, 121, 249, 0.16)' },
   calendar: { label: 'יומן ותזכורות', icon: Calendar, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.16)' },
-  system: { label: 'מחשב נייח ו-Git', icon: Cpu, color: '#a855f7', bg: 'rgba(168, 85, 247, 0.16)' }
+  system: { label: 'מחשב נייח ו-Claude', icon: Cpu, color: '#a855f7', bg: 'rgba(168, 85, 247, 0.16)' }
 };
 
 const STATUS_META = {
   success: { label: 'תקין • הופעל', pillClass: 'pill-success', accentClass: 'card-accent-success', icon: CheckCircle2 },
   warning: { label: 'התראה • דורש תשומת לב', pillClass: 'pill-warning', accentClass: 'card-accent-warning', icon: AlertTriangle },
   error: { label: 'תקלה • נכשל', pillClass: 'pill-error', accentClass: 'card-accent-error', icon: XCircle },
-  info: { label: 'עדכון מערכת', pillClass: 'pill-info', accentClass: 'card-accent-info', icon: Sparkles }
+  info: { label: 'פעיל / מוכן', pillClass: 'pill-info', accentClass: 'card-accent-info', icon: Sparkles }
 };
 
 function formatRelativeTime(isoString) {
-  if (!isoString) return 'לא ידוע';
+  if (!isoString) return 'טרם הורץ';
   const diffSec = Math.round((Date.now() - new Date(isoString).getTime()) / 1000);
   if (diffSec < 0) {
     const futureMin = Math.round(Math.abs(diffSec) / 60);
@@ -75,53 +77,79 @@ export default function App() {
   const embedded = typeof window !== 'undefined' ? window.__PAPOOSH_EMBEDDED__ : null;
   const logoSrc = embedded?.logoDataUri || './papoosh-logo.jpg';
 
-  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard | automations | alerts | tools | iphone
+  const [activeTab, setActiveTab] = useState('dashboard'); // dashboard | bridge | automations | alerts | tools
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [telemetry, setTelemetry] = useState(() => embedded?.telemetry || null);
+  const [bridge, setBridge] = useState(null);
+  const [localBridgeOnline, setLocalBridgeOnline] = useState(false);
   const [versionInfo, setVersionInfo] = useState(() => embedded?.version || APP_VERSION);
   const [newVersionAvailable, setNewVersionAvailable] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState(null);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [instructionText, setInstructionText] = useState('');
+  const [instructionTarget, setInstructionTarget] = useState('agent'); // 'agent' | 'claude'
+  const [isSendingInstruction, setIsSendingInstruction] = useState(false);
 
   const showToast = useCallback((msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
 
+  const handleHardRefreshApp = useCallback(() => {
+    const nextBuild = newVersionAvailable?.buildNumber || versionInfo?.buildNumber || Date.now();
+    window.location.href = `${window.location.pathname}?v=${nextBuild}&t=${Date.now()}`;
+  }, [newVersionAvailable, versionInfo]);
+
   const fetchLiveTelemetryAndVersion = useCallback(async (manual = false) => {
     setIsRefreshing(true);
     const cacheBuster = `t=${Date.now()}`;
-    const candidateBaseUrls = ['./', 'https://fradkintal.github.io/papoosh-automations/'];
 
-    let loadedTelemetry = null;
-    for (const base of candidateBaseUrls) {
-      try {
-        const res = await fetch(`${base}data/telemetry.json?${cacheBuster}`, { cache: 'no-store' });
-        if (res.ok) {
-          loadedTelemetry = await res.json();
-          break;
-        }
-      } catch {
-        // Try next candidate
+    // 1. Try local PC bridge first (if on home network or localhost)
+    let fetchedFromLocal = false;
+    try {
+      const localRes = await fetch(`http://localhost:4041/api/status?${cacheBuster}`, { cache: 'no-store' });
+      if (localRes.ok) {
+        const payload = await localRes.json();
+        if (payload.telemetry) setTelemetry(payload.telemetry);
+        if (payload.bridge) setBridge(payload.bridge);
+        setLocalBridgeOnline(true);
+        fetchedFromLocal = true;
       }
+    } catch {
+      setLocalBridgeOnline(false);
     }
 
-    if (loadedTelemetry) {
-      setTelemetry(loadedTelemetry);
-      try {
-        localStorage.setItem('papoosh_last_telemetry', JSON.stringify(loadedTelemetry));
-      } catch {
-        // ignore storage quota
+    // 2. Fetch from hosted JSON files with cache-busting
+    const candidateBaseUrls = ['./', 'https://fradkintal.github.io/papoosh-automations/'];
+
+    if (!fetchedFromLocal) {
+      for (const base of candidateBaseUrls) {
+        try {
+          const res = await fetch(`${base}data/telemetry.json?${cacheBuster}`, { cache: 'no-store' });
+          if (res.ok) {
+            const data = await res.json();
+            setTelemetry(data);
+            break;
+          }
+        } catch {
+          // Try next candidate
+        }
       }
-    } else if (!telemetry) {
-      try {
-        const cached = localStorage.getItem('papoosh_last_telemetry');
-        if (cached) setTelemetry(JSON.parse(cached));
-      } catch {
-        // ignore
+
+      for (const base of candidateBaseUrls) {
+        try {
+          const bRes = await fetch(`${base}data/bridge.json?${cacheBuster}`, { cache: 'no-store' });
+          if (bRes.ok) {
+            const bData = await bRes.json();
+            setBridge(bData);
+            break;
+          }
+        } catch {
+          // Try next candidate
+        }
       }
     }
 
@@ -148,14 +176,14 @@ export default function App() {
     setTimeout(() => {
       setIsRefreshing(false);
       if (manual) {
-        showToast('הנתונים והגרסה סונכרנו מול המחשב הנייח בהצלחה!');
+        showToast('הנתונים והגרסה רועננו מול המחשב הנייח!');
       }
-    }, 350);
-  }, [telemetry, showToast]);
+    }, 300);
+  }, [showToast]);
 
   useEffect(() => {
     fetchLiveTelemetryAndVersion(false);
-    const interval = setInterval(() => fetchLiveTelemetryAndVersion(false), 45000);
+    const interval = setInterval(() => fetchLiveTelemetryAndVersion(false), 30000);
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
         fetchLiveTelemetryAndVersion(false);
@@ -184,18 +212,45 @@ export default function App() {
     showToast('סטטוס ההתראה עודכן!');
   };
 
-  const handleDownloadStandaloneHtml = () => {
-    const htmlContent = document.documentElement.outerHTML;
-    const blob = new Blob(['<!doctype html>\n' + htmlContent], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `PAPOOSH-iPhone-v${versionInfo.version || APP_VERSION.version}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('קובץ האפליקציה לאייפון הורד בהצלחה!');
+  const handleSendBridgeAction = async (type, customText = '') => {
+    setIsSendingInstruction(true);
+    try {
+      const res = await fetch('http://localhost:4041/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          text: customText,
+          prompt: customText
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bridge) setBridge(data.bridge);
+        showToast('הפעולה נשלחה ובוצעה במחשב הנייח!');
+        setInstructionText('');
+        setIsSendingInstruction(false);
+        return;
+      }
+    } catch {
+      // Fallback if away from home Wi-Fi: open pre-filled GitHub Issue dispatch or local queue
+    }
+
+    // Add to local state & offer 1-tap GitHub cloud dispatch when outside home network
+    const newMsg = {
+      id: `msg-${Date.now()}`,
+      sender: 'tal',
+      target: instructionTarget,
+      timestamp: new Date().toISOString(),
+      text: customText || type
+    };
+    setBridge((prev) => ({
+      ...(prev || {}),
+      messages: [newMsg, ...(prev?.messages || [])]
+    }));
+    setInstructionText('');
+    setIsSendingInstruction(false);
+    showToast('ההוראה נרשמה בגשר פפוש!');
   };
 
   const filteredAutomations = useMemo(() => {
@@ -261,12 +316,12 @@ export default function App() {
         </div>
       )}
 
-      {/* New Version Alert Banner */}
+      {/* Outdated Version Banner -> Instant Refresh */}
       {newVersionAvailable && (
         <div
-          className="glass-card card-accent-info"
+          className="glass-card card-accent-warning"
           style={{
-            background: 'linear-gradient(135deg, rgba(0,240,255,0.22), rgba(168,85,247,0.22))',
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.24), rgba(255,46,147,0.22))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -275,32 +330,28 @@ export default function App() {
           }}
         >
           <div>
-            <div style={{ fontWeight: 800, color: '#00f0ff', fontSize: '0.95rem' }}>
-              זמינה גרסה חדשה של פפוש! (v{newVersionAvailable.version} • Build #{newVersionAvailable.buildNumber})
+            <div style={{ fontWeight: 900, color: '#fbbf24', fontSize: '0.96rem' }}>
+              גרסת האפליקציה אינה מעודכנת! זמינה גרסה v{newVersionAvailable.version} (#{newVersionAvailable.buildNumber})
             </div>
-            <div style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
-              לחץ כדי לרענן מיד את האפליקציה לתוצאה העדכנית ביותר.
+            <div style={{ fontSize: '0.82rem', color: '#f8fafc' }}>
+              לחץ על כפתור הרענון כדי לטעון מיד את הגרסה החדשה ביותר.
             </div>
           </div>
-          <button
-            className="btn-neon"
-            onClick={() => {
-              window.location.href = `${window.location.pathname}?v=${newVersionAvailable.buildNumber}&t=${Date.now()}`;
-            }}
-          >
-            עדכן עכשיו
+          <button className="btn-neon" onClick={handleHardRefreshApp}>
+            <RefreshCw size={16} />
+            <span>רענן לגרסה החדשה</span>
           </button>
         </div>
       )}
 
-      {/* Hero Brand Header */}
+      {/* Hero Brand Header (Mobile Optimized, No Download Buttons) */}
       <header className="hero-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
             <img src={logoSrc} alt="PAPOOSH Logo" className="logo-glow" />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="font-brand brand-gradient-text" style={{ fontSize: '1.55rem', fontWeight: 900 }}>
+                <span className="font-brand brand-gradient-text" style={{ fontSize: '1.45rem', fontWeight: 900 }}>
                   PAPOOSH
                 </span>
                 <span
@@ -308,7 +359,7 @@ export default function App() {
                     background: 'rgba(255, 46, 147, 0.2)',
                     border: '1px solid rgba(255, 46, 147, 0.5)',
                     color: '#f472b6',
-                    fontSize: '0.73rem',
+                    fontSize: '0.72rem',
                     fontWeight: 800,
                     padding: '2px 9px',
                     borderRadius: '999px'
@@ -317,51 +368,45 @@ export default function App() {
                   פפוש אוטומציות
                 </span>
               </div>
-              <div style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '3px', fontWeight: 500 }}>
-                חמ״ל האוטומציות והכלים האישי של טל פרדקין
+              <div style={{ fontSize: '0.84rem', color: '#cbd5e1', marginTop: '2px', fontWeight: 500 }}>
+                חמ״ל האוטומציות, הקישורים והסוכנים של טל
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '7px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', color: '#34d399', fontWeight: 700 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: '#34d399', fontWeight: 700 }}>
                   <span className="pulse-dot" />
-                  מחשב נייח פעיל ({telemetry?.machine?.hostname || 'Desktop-PC'})
+                  {localBridgeOnline ? 'גשר מקומי חי (4041)' : `מחשב: ${telemetry?.machine?.hostname || 'פעיל'}`}
                 </span>
                 <span
-                  onClick={() => setActiveTab('iphone')}
                   style={{
-                    cursor: 'pointer',
-                    fontSize: '0.74rem',
-                    color: '#38bdf8',
-                    background: 'rgba(56, 189, 248, 0.14)',
-                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    fontSize: '0.73rem',
+                    color: newVersionAvailable ? '#fbbf24' : '#34d399',
+                    background: newVersionAvailable ? 'rgba(245, 158, 11, 0.18)' : 'rgba(16, 185, 129, 0.15)',
+                    border: newVersionAvailable ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(16, 185, 129, 0.38)',
                     padding: '2px 8px',
                     borderRadius: '8px',
-                    fontWeight: 700
+                    fontWeight: 800
                   }}
                 >
-                  גרסה v{versionInfo.version || APP_VERSION.version} (#{versionInfo.buildNumber || APP_VERSION.buildNumber}) ✓
+                  {newVersionAvailable
+                    ? `נדרש רענון ל-v${newVersionAvailable.version}`
+                    : `גרסה v${APP_VERSION.version} (#${APP_VERSION.buildNumber}) מעודכנת ✓`}
                 </span>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              className="btn-secondary"
-              onClick={() => fetchLiveTelemetryAndVersion(true)}
-              title="סנכרן נתונים ובדוק גרסה עדכנית"
-            >
-              <RefreshCw size={15} className={isRefreshing ? 'spin' : ''} style={{ animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none' }} />
-              <span>רענן</span>
-            </button>
-            <button className="btn-neon" onClick={handleDownloadStandaloneHtml}>
-              <Download size={16} />
-              <span>הורד לאייפון</span>
-            </button>
-          </div>
+          <button
+            className={newVersionAvailable ? 'btn-neon' : 'btn-secondary'}
+            onClick={() => (newVersionAvailable ? handleHardRefreshApp() : fetchLiveTelemetryAndVersion(true))}
+            style={{ padding: '10px 14px' }}
+          >
+            <RefreshCw size={16} style={{ animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none' }} />
+            <span>{newVersionAvailable ? 'עדכן גרסה' : 'רענן'}</span>
+          </button>
         </div>
       </header>
 
-      {/* Top KPI Cards (Color-Coded for Instant Visual Clarity) */}
+      {/* Top KPI Cards */}
       <section className="kpi-grid">
         <div
           className="kpi-card kpi-emerald"
@@ -372,13 +417,13 @@ export default function App() {
           style={{ cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: '#a7f3d0', fontWeight: 700 }}>אוטומציות תקינות</span>
-            <CheckCircle2 size={20} color="#34d399" />
+            <span style={{ fontSize: '0.78rem', color: '#a7f3d0', fontWeight: 700 }}>אוטומציות תקינות</span>
+            <CheckCircle2 size={19} color="#34d399" />
           </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#34d399', marginTop: '4px' }}>
-            {summary.healthyCount} <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#94a3b8' }}>/ {summary.totalAutomations}</span>
+          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#34d399', marginTop: '4px' }}>
+            {summary.healthyCount} <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#94a3b8' }}>/ {summary.totalAutomations}</span>
           </div>
-          <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '2px' }}>ירוק = רץ חלק ברקע</div>
+          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '2px' }}>ירוק = סנכרון תקין</div>
         </div>
 
         <div
@@ -390,13 +435,13 @@ export default function App() {
           style={{ cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: '#bae6fd', fontWeight: 700 }}>דיווחים וריצות היום</span>
-            <Activity size={20} color="#00f0ff" />
+            <span style={{ fontSize: '0.78rem', color: '#bae6fd', fontWeight: 700 }}>הרצות אמיתיות</span>
+            <Activity size={19} color="#00f0ff" />
           </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#00f0ff', marginTop: '4px' }}>
+          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#00f0ff', marginTop: '4px' }}>
             {summary.runsToday}
           </div>
-          <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '2px' }}>
+          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '2px' }}>
             עודכן {formatRelativeTime(telemetry?.updatedAt)}
           </div>
         </div>
@@ -407,13 +452,13 @@ export default function App() {
           style={{ cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: '#fde68a', fontWeight: 700 }}>התראות פתוחות</span>
-            <AlertTriangle size={20} color="#fbbf24" />
+            <span style={{ fontSize: '0.78rem', color: '#fde68a', fontWeight: 700 }}>התראות ותזכורות</span>
+            <AlertTriangle size={19} color="#fbbf24" />
           </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#fbbf24', marginTop: '4px' }}>
+          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#fbbf24', marginTop: '4px' }}>
             {openAlerts.length}
           </div>
-          <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '2px' }}>צהוב = דורש השלמה/בדיקה</div>
+          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '2px' }}>צהוב = תזכורת פעילה</div>
         </div>
 
         <div
@@ -425,20 +470,20 @@ export default function App() {
           style={{ cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: '#fecdd3', fontWeight: 700 }}>תקלות פתוחות</span>
-            <XCircle size={20} color="#fb7185" />
+            <span style={{ fontSize: '0.78rem', color: '#fecdd3', fontWeight: 700 }}>תקלות פתוחות</span>
+            <XCircle size={19} color="#fb7185" />
           </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#fb7185', marginTop: '4px' }}>
+          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#fb7185', marginTop: '4px' }}>
             {summary.errorCount}
           </div>
-          <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '2px' }}>
-            {summary.errorCount > 0 ? 'אדום = דורש חיבור/טיפול' : 'אפס תקלות!'}
+          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '2px' }}>
+            {summary.errorCount > 0 ? 'אדום = דורש טיפול' : 'אפס תקלות!'}
           </div>
         </div>
       </section>
 
       {/* Category Filter Bar */}
-      <div style={{ marginTop: '16px', marginBottom: '12px' }}>
+      <div style={{ marginTop: '14px', marginBottom: '12px' }}>
         <div className="chip-row">
           {Object.entries(CATEGORY_META).map(([key, meta]) => {
             const IconComp = meta.icon;
@@ -460,17 +505,13 @@ export default function App() {
       {/* TAB 1: DASHBOARD (חמ"ל פפוש ראשי) */}
       {activeTab === 'dashboard' && (
         <main>
-          {/* Active Alerts Highlight Section */}
           {openAlerts.length > 0 && (
-            <section style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <section style={{ marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <h2 style={{ margin: 0, fontSize: '1.04rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Bell size={18} color="#fbbf24" />
-                  <span>התראות ודגשים חשובים במחשב החדש ({openAlerts.length})</span>
+                  <span>התראות ותזכורות ({openAlerts.length})</span>
                 </h2>
-                <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: '0.76rem' }} onClick={() => setActiveTab('alerts')}>
-                  כל ההתראות
-                </button>
               </div>
 
               {openAlerts.map((al) => {
@@ -478,7 +519,7 @@ export default function App() {
                 const isInfo = al.severity === 'info';
                 const accent = isCrit ? 'card-accent-error' : isInfo ? 'card-accent-info' : 'card-accent-warning';
                 const pillClass = isCrit ? 'pill-error' : isInfo ? 'pill-info' : 'pill-warning';
-                const pillLabel = isCrit ? 'תקלה / חוסר הגדרה' : isInfo ? 'מחובר ומוכן' : 'התראה';
+                const pillLabel = isCrit ? 'תקלה' : isInfo ? 'תזכורת' : 'התראה';
 
                 return (
                   <div key={al.id} className={`glass-card ${accent}`}>
@@ -488,8 +529,8 @@ export default function App() {
                           <span className={`pill ${pillClass}`}>{pillLabel}</span>
                           <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{formatRelativeTime(al.createdAt)}</span>
                         </div>
-                        <div style={{ fontWeight: 800, fontSize: '1rem', color: '#f8fafc' }}>{al.title}</div>
-                        <p style={{ margin: '6px 0', fontSize: '0.86rem', color: '#cbd5e1', lineHeight: 1.5 }}>{al.message}</p>
+                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#f8fafc' }}>{al.title}</div>
+                        <p style={{ margin: '6px 0', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: 1.5 }}>{al.message}</p>
                         {al.actionHint && (
                           <div
                             style={{
@@ -503,13 +544,13 @@ export default function App() {
                               fontWeight: 600
                             }}
                           >
-                            💡 פעולה מומלצת: {al.actionHint}
+                            💡 {al.actionHint}
                           </div>
                         )}
                       </div>
                       <button
                         className="btn-secondary"
-                        style={{ flexShrink: 0, fontSize: '0.75rem', padding: '6px 10px' }}
+                        style={{ flexShrink: 0, fontSize: '0.74rem', padding: '6px 10px' }}
                         onClick={() => handleToggleResolveAlert(al.id)}
                       >
                         סמן כטופל ✓
@@ -521,38 +562,13 @@ export default function App() {
             </section>
           )}
 
-          {/* Live Automation Runs Feed */}
+          {/* Real Automation Runs Feed */}
           <section>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-              <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Activity size={18} color="#00f0ff" />
-                <span>יומן הפעלות ודיווחים אחרונים ({filteredRuns.length})</span>
+                <span>תוצאות הרצות אמיתיות ({filteredRuns.length})</span>
               </h2>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {[
-                  { id: 'all', label: 'הכל' },
-                  { id: 'success', label: '🟢 תקין' },
-                  { id: 'warning', label: '🟡 התראה' },
-                  { id: 'error', label: '🔴 תקלה' }
-                ].map((st) => (
-                  <button
-                    key={st.id}
-                    onClick={() => setStatusFilter(st.id)}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '10px',
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      border: statusFilter === st.id ? '1px solid #00f0ff' : '1px solid rgba(148,163,184,0.2)',
-                      background: statusFilter === st.id ? 'rgba(0,240,255,0.16)' : 'rgba(15,23,42,0.7)',
-                      color: '#f8fafc',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {st.label}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {filteredRuns.map((run) => {
@@ -579,13 +595,13 @@ export default function App() {
                           <CatIcon size={13} />
                           {cat.label}
                         </span>
-                        <span style={{ fontSize: '0.76rem', color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <Clock size={12} />
                           {formatRelativeTime(run.timestamp)} ({formatTimeHM(run.timestamp)})
                         </span>
                       </div>
-                      <div style={{ fontWeight: 800, fontSize: '1.02rem', color: '#ffffff' }}>{run.name}</div>
-                      <div style={{ fontSize: '0.87rem', color: '#cbd5e1', marginTop: '4px', lineHeight: 1.45 }}>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: '#ffffff' }}>{run.name}</div>
+                      <div style={{ fontSize: '0.86rem', color: '#cbd5e1', marginTop: '4px', lineHeight: 1.45 }}>
                         {run.summary}
                       </div>
                     </div>
@@ -606,7 +622,7 @@ export default function App() {
                       }}
                     >
                       <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#00f0ff', marginBottom: '6px' }}>
-                        פירוט לוג הריצה מהמחשב הנייח:
+                        פלט הרצה מאומת:
                       </div>
                       {run.details.map((line, idx) => (
                         <div key={idx} style={{ fontSize: '0.82rem', color: '#e2e8f0', padding: '3px 0' }}>
@@ -622,12 +638,153 @@ export default function App() {
         </main>
       )}
 
-      {/* TAB 2: AUTOMATIONS (כל האוטומציות במחשב) */}
+      {/* TAB 2: LIVE BRIDGE (חיבור חי בין המחשב, השיחה, Claude והאפליקציה) */}
+      {activeTab === 'bridge' && (
+        <main>
+          <div className="glass-card card-accent-info">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <MessageSquare size={22} color="#00f0ff" />
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 900 }}>
+                  גשר פפוש חי: המחשב הנייח ⬅ השיחה ⬅ Claude
+                </h2>
+                <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
+                  שלח הוראות להוספת אוטומציות, חיפוש קישורים אונליין, שאיבת ישראכרט או הפעלת Claude על המחשב.
+                </div>
+              </div>
+            </div>
+
+            {/* Target selector */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+              <button
+                className={`filter-chip ${instructionTarget === 'agent' ? 'active' : ''}`}
+                onClick={() => setInstructionTarget('agent')}
+              >
+                <Sparkles size={14} />
+                <span>שלח לסוכן השיחה (Antigravity)</span>
+              </button>
+              <button
+                className={`filter-chip ${instructionTarget === 'claude' ? 'active' : ''}`}
+                onClick={() => setInstructionTarget('claude')}
+              >
+                <Bot size={14} />
+                <span>שלח ל-Claude במחשב הנייח</span>
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={instructionText}
+                onChange={(e) => setInstructionText(e.target.value)}
+                placeholder="כתוב הוראה, בקשה לאוטומציה חדשה או חיפוש קישור..."
+                style={{
+                  flex: 1,
+                  background: 'rgba(4, 7, 17, 0.9)',
+                  border: '1px solid rgba(0, 240, 255, 0.35)',
+                  borderRadius: '14px',
+                  padding: '11px 14px',
+                  color: '#fff',
+                  fontSize: '0.88rem',
+                  fontFamily: 'inherit'
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && instructionText.trim()) {
+                    handleSendBridgeAction(
+                      instructionTarget === 'claude' ? 'ask-claude' : 'chat',
+                      instructionText.trim()
+                    );
+                  }
+                }}
+              />
+              <button
+                className="btn-neon"
+                disabled={isSendingInstruction || !instructionText.trim()}
+                onClick={() =>
+                  handleSendBridgeAction(
+                    instructionTarget === 'claude' ? 'ask-claude' : 'chat',
+                    instructionText.trim()
+                  )
+                }
+              >
+                <Send size={16} />
+                <span>שלח</span>
+              </button>
+            </div>
+
+            {/* Quick Remote Actions on PC */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+              <button className="btn-secondary" onClick={() => handleSendBridgeAction('open-isracard')}>
+                <Wallet size={14} color="#10b981" />
+                <span>פתח ישראכרט במחשב</span>
+              </button>
+              <button className="btn-secondary" onClick={() => handleSendBridgeAction('import-isracard-downloads')}>
+                <RefreshCw size={14} color="#00f0ff" />
+                <span>שאב קובץ ישראכרט מ-Downloads</span>
+              </button>
+              <button className="btn-secondary" onClick={() => handleSendBridgeAction('launch-claude-desktop')}>
+                <Bot size={14} color="#e879f9" />
+                <span>הפעל Claude Desktop במחשב</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Saved Links & Online Discoveries */}
+          <section style={{ marginBottom: '18px' }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Link2 size={18} color="#00f0ff" />
+              <span>קישורים שמורים וממצאים מהשיחה ({bridge?.links?.length || 0})</span>
+            </h3>
+            {(bridge?.links || []).map((lnk) => (
+              <div key={lnk.id} className="glass-card card-accent-info" style={{ padding: '13px 15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#fff' }}>{lnk.title}</div>
+                    {lnk.note && <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginTop: '3px' }}>{lnk.note}</div>}
+                  </div>
+                  <a href={lnk.url} target="_blank" rel="noreferrer" className="btn-neon" style={{ padding: '8px 12px', fontSize: '0.8rem', flexShrink: 0 }}>
+                    <ExternalLink size={14} />
+                    <span>פתח</span>
+                  </a>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* Messages & Agent Responses Feed */}
+          <section>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 800 }}>
+              פיד עדכונים והודעות בזמן אמת ({bridge?.messages?.length || 0})
+            </h3>
+            {(bridge?.messages || []).map((msg) => {
+              const isUser = msg.sender === 'tal';
+              const isClaude = msg.sender === 'claude';
+              return (
+                <div
+                  key={msg.id}
+                  className={`glass-card ${isUser ? 'card-accent-info' : isClaude ? 'card-accent-warning' : 'card-accent-success'}`}
+                  style={{ padding: '12px 15px' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>
+                    <strong style={{ color: isUser ? '#00f0ff' : isClaude ? '#e879f9' : '#34d399' }}>
+                      {isUser ? '👤 טל (מהנייד)' : isClaude ? '🧠 Claude (מחשב נייח)' : '🤖 פפוש (סוכן השיחה)'}
+                    </strong>
+                    <span>{formatRelativeTime(msg.timestamp)} ({formatTimeHM(msg.timestamp)})</span>
+                  </div>
+                  <div style={{ fontSize: '0.88rem', color: '#f8fafc', lineHeight: 1.5 }}>{msg.text}</div>
+                </div>
+              );
+            })}
+          </section>
+        </main>
+      )}
+
+      {/* TAB 3: AUTOMATIONS (כל האוטומציות במחשב) */}
       {activeTab === 'automations' && (
         <main>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>
-              כל האוטומציות הרשומות במחשב ({filteredAutomations.length})
+            <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800 }}>
+              האוטומציות הפעילות במחשב ({filteredAutomations.length})
             </h2>
             <button className="btn-secondary" onClick={() => setStatusFilter('all')}>
               הצג הכל
@@ -654,8 +811,8 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#ffffff' }}>{auto.name}</div>
-                    <p style={{ margin: '5px 0 8px 0', fontSize: '0.85rem', color: '#94a3b8', lineHeight: 1.45 }}>
+                    <div style={{ fontWeight: 800, fontSize: '1.04rem', color: '#ffffff' }}>{auto.name}</div>
+                    <p style={{ margin: '5px 0 8px 0', fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.45 }}>
                       {auto.description}
                     </p>
 
@@ -683,7 +840,7 @@ export default function App() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
                       <a href={auto.repoPath} target="_blank" rel="noreferrer" className="btn-secondary">
                         <ExternalLink size={14} />
-                        <span>פתח דשבורד</span>
+                        <span>פתח קישור</span>
                       </a>
                     </div>
                   )}
@@ -694,11 +851,11 @@ export default function App() {
         </main>
       )}
 
-      {/* TAB 3: ALERTS & ERRORS (התראות ותקלות) */}
+      {/* TAB 4: ALERTS & ERRORS (התראות ותקלות) */}
       {activeTab === 'alerts' && (
         <main>
-          <h2 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', fontWeight: 800 }}>
-            מרכז התראות, חריגים ותקלות ({telemetry?.alerts?.length || 0})
+          <h2 style={{ margin: '0 0 12px 0', fontSize: '1.08rem', fontWeight: 800 }}>
+            מרכז התראות, תזכורות ותקלות ({telemetry?.alerts?.length || 0})
           </h2>
 
           {(telemetry?.alerts || []).map((al) => {
@@ -717,7 +874,7 @@ export default function App() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                       <span className={`pill ${pillClass}`}>
-                        {al.resolved ? 'טופל ✓' : isCrit ? 'תקלה פתוחה' : isInfo ? 'מידע' : 'התראה'}
+                        {al.resolved ? 'טופל ✓' : isCrit ? 'תקלה פתוחה' : isInfo ? 'תזכורת' : 'התראה'}
                       </span>
                       <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>{formatRelativeTime(al.createdAt)}</span>
                     </div>
@@ -742,16 +899,13 @@ export default function App() {
         </main>
       )}
 
-      {/* TAB 4: TOOLS HUB (ארגז הכלים והמערכות של טל) */}
+      {/* TAB 5: TOOLS HUB (ארגז הכלים והמערכות של טל) */}
       {activeTab === 'tools' && (
         <main>
           <div style={{ marginBottom: '14px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 800 }}>
-              ארגז הכלים והפרויקטים של פפוש (`C:\Users\fradk\PROGRAMS`)
+            <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800 }}>
+              ארגז הכלים והמערכות של פפוש (`C:\Users\fradk\PROGRAMS`)
             </h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#94a3b8' }}>
-              כל המערכות העסקיות והאישיות שלך במקום אחד – מוכנות להתממשקות מלאה עם סוכן האוטומציות.
-            </p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
@@ -773,14 +927,14 @@ export default function App() {
                       {tool.statusLabel}
                     </span>
                   </div>
-                  <div style={{ fontWeight: 900, fontSize: '1.08rem', color: '#fff' }}>{tool.name}</div>
-                  <div style={{ fontSize: '0.84rem', color: '#cbd5e1', marginTop: '4px' }}>{tool.subtitle}</div>
-                  <div style={{ fontSize: '0.76rem', color: '#94a3b8', marginTop: '8px' }}>🛠️ {tool.tech}</div>
+                  <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#fff' }}>{tool.name}</div>
+                  <div style={{ fontSize: '0.83rem', color: '#cbd5e1', marginTop: '4px' }}>{tool.subtitle}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px' }}>🛠️ {tool.tech}</div>
                   <div
                     className="font-mono-code"
                     style={{
                       marginTop: '8px',
-                      fontSize: '0.73rem',
+                      fontSize: '0.72rem',
                       color: '#38bdf8',
                       background: 'rgba(4, 7, 17, 0.8)',
                       padding: '6px 9px',
@@ -801,19 +955,40 @@ export default function App() {
                     style={{ width: '100%' }}
                   >
                     <ExternalLink size={14} />
-                    <span>פתח ב-GitHub / Web</span>
+                    <span>פתח</span>
                   </a>
                 </div>
               </div>
             ))}
           </div>
 
+          {/* Version & Cache-Busting Status */}
+          <div className="glass-card card-accent-success" style={{ marginTop: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <ShieldCheck size={22} color="#34d399" />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#fff' }}>
+                    בדיקת גרסה אוטומטית פעילה (v{APP_VERSION.version} • Build #{APP_VERSION.buildNumber})
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                    האפליקציה בודקת עדכונים אוטומטית בכל פתיחה ממסך הבית באייפון.
+                  </div>
+                </div>
+              </div>
+              <button className="btn-secondary" onClick={handleHardRefreshApp}>
+                <RefreshCw size={14} />
+                <span>רענון מלא</span>
+              </button>
+            </div>
+          </div>
+
           {/* How any script reports to PAPOOSH */}
-          <div className="glass-card card-accent-info" style={{ marginTop: '16px' }}>
+          <div className="glass-card card-accent-info" style={{ marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, color: '#00f0ff' }}>
                 <Terminal size={18} />
-                <span>איך כל אוטומציה חדשה במחשב מדווחת לפפוש?</span>
+                <span>פקודת דיווח מהירה מכל סקריפט במחשב</span>
               </div>
               <button
                 className="btn-secondary"
@@ -824,134 +999,25 @@ export default function App() {
                 }}
               >
                 {copiedSnippet ? <Check size={14} color="#34d399" /> : <Copy size={14} />}
-                <span>{copiedSnippet ? 'הועתק!' : 'העתק פקודה'}</span>
+                <span>{copiedSnippet ? 'הועתק!' : 'העתק'}</span>
               </button>
             </div>
-            <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: '8px 0' }}>
-              הוסף את השורה הזו בסוף כל סקריפט (ב-Node.js, Python או PowerShell) כדי שהריצה תופיע מיד באייפון:
-            </p>
             <pre
               className="font-mono-code"
               style={{
                 background: '#03060d',
-                padding: '12px',
-                borderRadius: '12px',
+                padding: '10px',
+                borderRadius: '10px',
                 border: '1px solid rgba(0, 240, 255, 0.25)',
                 color: '#38bdf8',
-                fontSize: '0.78rem',
+                fontSize: '0.75rem',
                 overflowX: 'auto',
-                margin: 0
+                marginTop: '8px',
+                marginBottom: 0
               }}
             >
               {cliSnippet}
             </pre>
-          </div>
-        </main>
-      )}
-
-      {/* TAB 5: IPHONE & VERSIONS (הורדה לאייפון וניהול גרסאות) */}
-      {activeTab === 'iphone' && (
-        <main>
-          <div className="glass-card card-accent-info">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-              <Smartphone size={26} color="#00f0ff" />
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 900 }}>
-                  אפליקציית PAPOOSH לאייפון שלך (2 דרכים לבחירתך)
-                </h2>
-                <div style={{ fontSize: '0.83rem', color: '#cbd5e1' }}>
-                  גם קובץ עצמאי להורדה ישירה לאייפון בלי צורך ב-Host וגם אפליקציית Web חיה (PWA) עם אייקון במסך הבית!
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginTop: '14px' }}>
-              {/* Option A: Direct Downloadable File */}
-              <div
-                style={{
-                  background: 'rgba(15, 23, 42, 0.9)',
-                  border: '1px solid rgba(0, 240, 255, 0.35)',
-                  borderRadius: '16px',
-                  padding: '14px'
-                }}
-              >
-                <div style={{ fontWeight: 800, color: '#00f0ff', fontSize: '0.96rem', marginBottom: '6px' }}>
-                  אפשרות 1: קובץ אפליקציה עצמאי לאייפון (ללא צורך ב-Host)
-                </div>
-                <p style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.5, margin: '0 0 12px 0' }}>
-                  מוריד קובץ יחיד (`PAPOOSH-iPhone-App.html`) שכולל בתוכו את הלוגו, העיצוב והנתונים. אפשר לשמור אותו באפליקציית <strong>קבצים (Files)</strong> באייפון או לשלוח לעצמך בוואטסאפ/מייל ולפתוח בכל רגע! כשהאייפון מחובר לאינטרנט, הקובץ גם יודע למשוך לבד את העדכונים האחרונים מ-GitHub.
-                </p>
-                <button className="btn-neon" style={{ width: '100%' }} onClick={handleDownloadStandaloneHtml}>
-                  <Download size={16} />
-                  <span>הורד קובץ אפליקציה עצמאי (.html)</span>
-                </button>
-              </div>
-
-              {/* Option B: iOS WebClip / PWA */}
-              <div
-                style={{
-                  background: 'rgba(15, 23, 42, 0.9)',
-                  border: '1px solid rgba(232, 121, 249, 0.35)',
-                  borderRadius: '16px',
-                  padding: '14px'
-                }}
-              >
-                <div style={{ fontWeight: 800, color: '#e879f9', fontSize: '0.96rem', marginBottom: '6px' }}>
-                  אפשרות 2: התקנת אייקון PAPOOSH למסך הבית באייפון
-                </div>
-                <p style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.5, margin: '0 0 12px 0' }}>
-                  מתקין את האייקון הצבעוני של PAPOOSH ישירות על מסך הבית באייפון באפליקציית מסך מלא (PWA). אפשר להוריד פרופיל התקנה אוטומטי לאייפון או ללחוץ ב-Safari על <strong>שיתוף ⬅ הוסף למסך הבית</strong>.
-                </p>
-                <a
-                  href="./PAPOOSH-iPhone.mobileconfig"
-                  download="PAPOOSH-iPhone.mobileconfig"
-                  className="btn-secondary"
-                  style={{ width: '100%', borderColor: 'rgba(232, 121, 249, 0.5)', color: '#f5d0fe' }}
-                >
-                  <Smartphone size={16} />
-                  <span>הורד פרופיל אייקון לאייפון (.mobileconfig)</span>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Version Verification & Changelog */}
-          <div className="glass-card card-accent-success">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <ShieldCheck size={24} color="#34d399" />
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: '1.02rem', color: '#fff' }}>
-                    בקרת גרסאות ווידוא תצוגה עדכנית (Cache-Busting פעיל)
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
-                    גרסה נוכחית: <strong style={{ color: '#34d399' }}>v{versionInfo.version || APP_VERSION.version}</strong> • Build #{versionInfo.buildNumber || APP_VERSION.buildNumber} • {versionInfo.codename || APP_VERSION.codename}
-                  </div>
-                </div>
-              </div>
-              <button className="btn-secondary" onClick={() => fetchLiveTelemetryAndVersion(true)}>
-                <RefreshCw size={14} />
-                <span>בדוק עדכון עכשיו</span>
-              </button>
-            </div>
-
-            <div style={{ marginTop: '14px', borderTop: '1px solid rgba(148,163,184,0.16)', paddingTop: '12px' }}>
-              <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#00f0ff', marginBottom: '8px' }}>
-                היסטוריית גרסאות (Changelog):
-              </div>
-              {(versionInfo.changelog || []).map((entry, idx) => (
-                <div key={idx} style={{ marginBottom: '10px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#f8fafc' }}>
-                    v{entry.version} ({entry.date}) – {entry.title}
-                  </div>
-                  <ul style={{ margin: '4px 0 0 0', paddingRight: '18px', fontSize: '0.82rem', color: '#cbd5e1' }}>
-                    {(entry.highlights || []).map((h, i) => (
-                      <li key={i} style={{ marginBottom: '3px' }}>{h}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
           </div>
         </main>
       )}
@@ -965,6 +1031,14 @@ export default function App() {
           >
             <Activity size={20} />
             <span>חמ״ל פפוש</span>
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'bridge' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bridge')}
+          >
+            <MessageSquare size={20} />
+            <span>גשר וקישורים</span>
           </button>
 
           <button
@@ -989,15 +1063,7 @@ export default function App() {
             onClick={() => setActiveTab('tools')}
           >
             <Wrench size={20} />
-            <span>ארגז כלים</span>
-          </button>
-
-          <button
-            className={`nav-tab ${activeTab === 'iphone' ? 'active' : ''}`}
-            onClick={() => setActiveTab('iphone')}
-          >
-            <Smartphone size={20} />
-            <span>אייפון וגרסה</span>
+            <span>כלים וגרסה</span>
           </button>
         </div>
       </nav>

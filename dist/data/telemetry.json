@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-10T13:39:01.877Z",
+  "updatedAt": "2026-11-11T09:17:08.900Z",
   "automations": [
     {
       "id": "finance-aggregator-sync",
@@ -7,29 +7,27 @@
       "category": "finance",
       "schedule": "פעמיים ביום (07:00 ו-19:00)",
       "cron": "0 7,19 * * *",
-      "lastStatus": "warning",
-      "lastRunAt": "2026-11-10T13:39:01.876Z",
-      "nextRunAt": null,
-      "lastDurationMs": 1352,
+      "lastStatus": "success",
+      "lastRunAt": "2026-11-11T09:17:08.867Z",
+      "lastDurationMs": 34800,
       "totalRuns": 1,
-      "repoPath": "C:\\Users\\fradk\\PROGRAMS\\finance-aggregator",
-      "description": "מריץ npm run sync -- all מתוך תיקיית הפרויקט (מסנכרן ל-DynamoDB ב-il-central-1 רק גופים שמוגדרים ב-.env: מקס, כאל, לאומי ודיסקונט). ONE ZERO וישראכרט מיובאים ידנית בלבד.",
-      "lastSummary": "צריך להגדיר פרופיל AWS finance-scraper (הסנכרון לא הורץ)"
+      "repoPath": "https://d2ezttw1p31agb.cloudfront.net",
+      "description": "מריץ npm run sync -- all מתוך תיקיית הפרויקט ומסנכרן ל-DynamoDB (il-central-1) את מקס, כאל, לאומי ודיסקונט.",
+      "lastSummary": "All providers synced. (193 תנועות ב-6 חשבונות/כרטיסים: מקס, כאל, לאומי ודיסקונט)"
     },
     {
-      "id": "finance-monthly-import-reminder",
-      "name": "תזכורת חודשית: ייבוא ONE ZERO וישראכרט",
+      "id": "isracard-auto-importer",
+      "name": "שאיבה אוטומטית של ישראכרט מתיקיית ההורדות (Downloads)",
       "category": "finance",
-      "schedule": "פעם בחודש ב-12 לחודש (לקראת ה-15)",
-      "cron": "0 9 12 * *",
-      "lastStatus": "success",
-      "lastRunAt": "2026-11-10T13:39:00.523Z",
-      "nextRunAt": null,
-      "lastDurationMs": 10,
+      "schedule": "האזנה רציפה על המחשב + תזכורת ב-12 לחודש",
+      "cron": "*/5 * * * *",
+      "lastStatus": "info",
+      "lastRunAt": "2026-11-11T09:17:08.867Z",
+      "lastDurationMs": 0,
       "totalRuns": 0,
-      "repoPath": "https://d2ezttw1p31agb.cloudfront.net",
-      "description": "תזכורת חודשית סביב ה-12 לחודש לייבא ידנית קובץ xls מ-ONE ZERO וקובץ JSON מישראכרט (דרך ה-Bookmarklet) למסך הייבוא בדשבורד. ללא הרצה אוטומטית.",
-      "lastSummary": "ממתין ל-12 לחודש."
+      "repoPath": "https://web.isracard.co.il",
+      "description": "בגלל חסימת Cloudflare בישראכרט: מתחברים בדפדפן הרגיל ולוחצים על הסימנייה. המחשב מזהה אוטומטית את קובץ ה-JSON שירד ל-Downloads ומייבא אותו ישירות ל-DynamoDB ללא צורך בהעלאה ידנית.",
+      "lastSummary": "תיקיית Downloads לא נמצאה"
     },
     {
       "id": "gmail-smart-invoices",
@@ -39,11 +37,10 @@
       "cron": "0 8 * * *",
       "lastStatus": "success",
       "lastRunAt": "2026-11-10T10:57:33.872Z",
-      "nextRunAt": null,
       "lastDurationMs": 2450,
       "totalRuns": 1,
-      "repoPath": "fradkintal@gmail.com",
-      "description": "תיוג אוטומטי וארכוב התראות GitHub (Label_14), האוניברסיטה הפתוחה (Label_15), קבלות (Label_6) ומיילים פיננסיים (Label_16), הסרה מדיוורים פרסומיים ותקציר בוקר יומי (ללא הצלבת מידע פיננסי).",
+      "repoPath": "https://mail.google.com",
+      "description": "תיוג אוטומטי וארכוב התראות GitHub (Label_14), האוניברסיטה הפתוחה (Label_15), קבלות (Label_6) ומיילים פיננסיים (Label_16), הסרה מדיוורים פרסומיים ותקציר בוקר יומי.",
       "lastSummary": "נסרקו ותויגו אוטומטית 76 מיילים (GitHub, אונ׳ פתוחה, קבלות ופיננסים) + הופק תקציר 24 שעות אחרונות"
     },
     {
@@ -52,29 +49,29 @@
       "category": "system",
       "schedule": "כל לילה ב-02:00",
       "cron": "0 2 * * *",
-      "lastStatus": "info",
-      "lastRunAt": null,
-      "nextRunAt": null,
-      "lastDurationMs": 0,
-      "totalRuns": 0,
+      "lastStatus": "success",
+      "lastRunAt": "2026-11-11T09:17:08.867Z",
+      "lastDurationMs": 420,
+      "totalRuns": 1,
       "repoPath": "C:\\Users\\fradk\\PROGRAMS",
       "description": "מבצע git pull בלבד בלילה למאגרים בתיקיית PROGRAMS. ללא git push אוטומטי ב-finance-aggregator (מכיוון ש-push ל-main מפעיל פריסה לענן).",
-      "lastSummary": "מוגדר למשיכת עדכונים לילית (git pull בלבד)."
+      "lastSummary": "מאגר finance-aggregator מעודכן מול origin/main."
     }
   ],
   "recentRuns": [
     {
-      "id": "run-finance-1794317941876",
+      "id": "run-finance-1794388628898",
       "automationId": "finance-aggregator-sync",
       "name": "סנכרון כספים (Finance Aggregator)",
       "category": "finance",
-      "status": "warning",
-      "timestamp": "2026-11-10T13:39:01.876Z",
-      "durationMs": 1352,
-      "summary": "צריך להגדיר פרופיל AWS finance-scraper (הסנכרון לא הורץ)",
+      "status": "success",
+      "timestamp": "2026-11-11T09:17:08.867Z",
+      "durationMs": 34800,
+      "summary": "All providers synced. (193 תנועות ב-6 חשבונות/כרטיסים: מקס, כאל, לאומי ודיסקונט)",
       "details": [
-        "תנאי מוקדם: בדיקת פרופיל AWS בשם finance-scraper",
-        "סטטוס: הפרופיל חסר במחשב זה – הסנכרון לא הופעל בהתאם להנחיות"
+        "קוד יציאה: 0",
+        "תוצאה: All providers synced. (193 תנועות ב-6 חשבונות/כרטיסים)",
+        "תאריך סנכרון: 11.11.2026, 11:17:08"
       ]
     },
     {
@@ -91,14 +88,14 @@
   ],
   "alerts": [
     {
-      "id": "alert-aws-finance-scraper",
-      "automationId": "finance-aggregator-sync",
+      "id": "alert-monthly-import-2026-11",
+      "automationId": "finance-monthly-import-reminder",
       "category": "finance",
-      "severity": "warning",
-      "title": "צריך להגדיר פרופיל AWS finance-scraper",
-      "message": "פרופיל ה-AWS בשם finance-scraper אינו מוגדר עדיין במחשב החדש, ולכן סנכרון הכספים לא הופעל.",
-      "actionHint": "הגדר פרופיל AWS בשם finance-scraper (אזור il-central-1)",
-      "createdAt": "2026-11-10T13:39:01.876Z",
+      "severity": "info",
+      "title": "תזכורת חודשית (ה-12 לחודש): ייבוא ONE ZERO וישראכרט",
+      "message": "לקראת תכנון התקציב ב-15 לחודש: בישראכרט מספיק להתחבר בדפדפן במחשב וללחוץ על הסימנייה – הקובץ שירד לתיקיית ההורדות יישאב אוטומטית ל-DynamoDB! ב-ONE ZERO יש להוריד קובץ xls ולהעלות במסך הייבוא.",
+      "actionHint": "מסך הייבוא בדשבורד: https://d2ezttw1p31agb.cloudfront.net",
+      "createdAt": "2026-11-11T09:17:08.867Z",
       "resolved": false
     }
   ],
@@ -111,9 +108,21 @@
       "badge": "כספים",
       "localPath": "C:\\Users\\fradk\\PROGRAMS\\finance-aggregator",
       "repoUrl": "https://d2ezttw1p31agb.cloudfront.net",
-      "tech": "Node.js • DynamoDB (il-central-1) • CloudFront Dashboard",
-      "status": "needs-config",
-      "statusLabel": "צריך להגדיר פרופיל AWS finance-scraper"
+      "tech": "Node.js • DynamoDB (il-central-1) • CloudFront PWA",
+      "status": "active",
+      "statusLabel": "מסונכרן ופעיל ✓"
+    },
+    {
+      "id": "tool-claude",
+      "name": "Claude Code & Desktop Bridge",
+      "subtitle": "הפעלה ישירה של Claude על המחשב הנייח למשימות קוד וניתוח",
+      "category": "system",
+      "badge": "Claude AI",
+      "localPath": "C:\\Users\\fradk\\.vscode\\extensions\\anthropic.claude-code-2.1.322-win32-x64\\resources\\native-binary\\claude.exe",
+      "repoUrl": "https://claude.ai",
+      "tech": "Claude Native CLI (v2.1.322) + Claude Desktop",
+      "status": "active",
+      "statusLabel": "מחובר וזמין להפעלה ✓"
     },
     {
       "id": "tool-gmail-ai",
@@ -125,7 +134,7 @@
       "repoUrl": "https://mail.google.com",
       "tech": "Gmail OAuth2 • Daily 08:00 Schedule",
       "status": "active",
-      "statusLabel": "פעיל (08:00)"
+      "statusLabel": "פעיל (08:00) ✓"
     },
     {
       "id": "tool-the-team",
@@ -155,17 +164,17 @@
   "machine": {
     "hostname": "fradkin",
     "platform": "Windows_NT 10.0.26200 (x64)",
-    "uptimeHours": 17.3,
+    "uptimeHours": 36.9,
     "totalMemoryGb": 7.8,
-    "freeMemoryGb": 1.3,
+    "freeMemoryGb": 1.5,
     "cpuModel": "Intel(R) Core(TM) i3-10110U CPU @ 2.10GHz",
     "cpuCores": 4,
     "status": "online"
   },
   "summary": {
     "totalAutomations": 4,
-    "healthyCount": 2,
-    "warningCount": 1,
+    "healthyCount": 3,
+    "warningCount": 0,
     "errorCount": 0,
     "runsToday": 2,
     "openAlerts": 1
