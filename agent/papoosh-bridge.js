@@ -136,7 +136,14 @@ function startLocalBridgeServer() {
       req.on('end', () => {
         try {
           const payload = JSON.parse(body || '{}');
-          const { type, text, prompt } = payload;
+          const { type, text, prompt, alertId } = payload;
+
+          if (type === 'dismiss-alert' && alertId) {
+            const updatedTelemetry = PapooshReporter.dismissAlert(alertId, { syncToGit: true });
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ ok: true, telemetry: updatedTelemetry }));
+            return;
+          }
 
           if (type === 'open-isracard') {
             spawn('cmd', ['/c', 'start', 'https://web.isracard.co.il'], { detached: true, stdio: 'ignore' }).unref();

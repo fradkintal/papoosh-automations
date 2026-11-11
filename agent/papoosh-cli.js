@@ -16,9 +16,22 @@ if (command === 'report') {
   const status = getArg('--status', 'success');
   const summary = getArg('--summary', 'הרצת אוטומציה הסתיימה בהצלחה');
   const durationMs = Number(getArg('--duration', '950'));
+  const detailsRaw = getArg('--details', '');
+  const details = detailsRaw
+    ? detailsRaw.split('|').map((s) => s.trim()).filter(Boolean)
+    : [];
   const alertTitle = getArg('--alert-title', '');
   const alertMsg = getArg('--alert-msg', '');
   const syncToGit = args.includes('--push');
+
+  const digest =
+    details.length > 0
+      ? {
+          title: name,
+          headline: summary,
+          items: details
+        }
+      : null;
 
   const result = PapooshReporter.reportRun({
     automationId,
@@ -27,15 +40,27 @@ if (command === 'report') {
     status,
     summary,
     durationMs,
-    alert: alertTitle ? { title: alertTitle, message: alertMsg || summary, severity: status === 'error' ? 'critical' : 'warning' } : null,
+    details,
+    digest,
+    alert: alertTitle
+      ? { title: alertTitle, message: alertMsg || summary, severity: status === 'error' ? 'critical' : 'warning' }
+      : null,
     syncToGit
   });
 
   console.log(`[PAPOOSH CLI] Reported '${name}' (${status}) -> Total runs today: ${result.summary.runsToday}`);
+} else if (command === 'dismiss-alert') {
+  const alertId = getArg('--id', '');
+  const syncToGit = args.includes('--push');
+  if (alertId) {
+    PapooshReporter.dismissAlert(alertId, { syncToGit });
+    console.log(`[PAPOOSH CLI] Dismissed alert '${alertId}'`);
+  }
 } else {
   console.log(`
-PAPOOSH Automations CLI (פפוש אוטומציות)
+PAPOOSH Automations CLI (פפוש אוטומציות אישי)
 Usage:
-  node agent/papoosh-cli.js report --id <id> --name "<name>" --category <finance|email|business|calendar|system> --status <success|warning|error> --summary "<text>" [--push]
+  node agent/papoosh-cli.js report --id <id> --name "<name>" --category <finance|email|calendar|system> --status <success|warning|error> --summary "<text>" [--details "שורה 1|שורה 2"] [--push]
+  node agent/papoosh-cli.js dismiss-alert --id <alertId> [--push]
   `);
 }

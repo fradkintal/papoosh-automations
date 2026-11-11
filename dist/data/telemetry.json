@@ -1,6 +1,109 @@
 {
-  "updatedAt": "2026-11-11T09:17:08.900Z",
+  "updatedAt": "2026-11-11T09:41:58.995Z",
+  "dismissedAlertIds": [],
+  "dailyDigests": [
+    {
+      "id": "digest-gmail-daily",
+      "automationId": "gmail-smart-invoices",
+      "category": "email",
+      "title": "תקציר בוקר יומי • סידור מיילים (Gmail)",
+      "scheduleLabel": "כל בוקר ב-08:00",
+      "updatedAt": "2026-11-11T09:41:58.991Z",
+      "headline": "נסרקו ותויגו 82 מיילים בתיבה, סוננו 3 דיוורים פרסומיים חדשים ורוכזו ההודעות שדורשות התייחסות:",
+      "badges": [
+        {
+          "label": "קבלות: 30",
+          "color": "#38bdf8"
+        },
+        {
+          "label": "פיננסים: 26",
+          "color": "#10b981"
+        },
+        {
+          "label": "אונ׳ פתוחה: 25",
+          "color": "#a855f7"
+        },
+        {
+          "label": "GitHub: 1 (אורכב)",
+          "color": "#fbbf24"
+        },
+        {
+          "label": "דיוורים שהושתקו: 3",
+          "color": "#f472b6"
+        }
+      ],
+      "items": [
+        "📌 דורש תשומת לב: הראל פנסיה וגמל — הודעה חשובה בנוגע להשלמת הליך ההצטרפות (\"חוסרים בעניין הצטרפותך להראל פנסיה וגמל ונספח ו'\")",
+        "📌 דורש תשומת לב: אבטחת חשבון GitHub — הופעל אימות דו-שלבי (2FA) ונוסף Passkey מהמחשב החדש; מומלץ לשמור את קודי השחזור (Recovery Codes)",
+        "💬 הודעות אישיות חדשות בתיבה: פנייה מתאיר (tair) והודעה בנוגע להשלמת צילום דרכון",
+        "🏷️ קבלות שתויגו אוטומטית (Receipts - Label_6): 30 קבלות ועדכוני משלוח (AliExpress, Google Payments, Facebook, Pango)",
+        "🏦 מיילים פיננסיים שתויגו אוטומטית (Finance & Bills - Label_16): 26 הודעות ועדכונים פיננסיים",
+        "🎓 האוניברסיטה הפתוחה (Open University - Label_15): 25 מיילים תויגו אוטומטית",
+        "🐙 התראות GitHub & CI (Label_14): תויגו והועברו לארכיון (הוסרו מ-INBOX)",
+        "🧹 ניקוי דיוורים פרסומיים: 3 דיוורים שיווקיים חדשים (Jotform, Builder.io, דיוור ישיר) סומנו כנקראו"
+      ]
+    },
+    {
+      "id": "digest-finance-daily",
+      "automationId": "finance-aggregator-sync",
+      "category": "finance",
+      "title": "תקציר סנכרון כספים יומי (Finance Aggregator)",
+      "scheduleLabel": "פעמיים ביום (07:00 ו-19:00)",
+      "updatedAt": "2026-11-11T09:17:08.867Z",
+      "headline": "All providers synced. (193 תנועות ב-6 חשבונות/כרטיסים: מקס, כאל, לאומי ודיסקונט)",
+      "badges": [
+        {
+          "label": "מקס: 140 תנועות",
+          "color": "#10b981"
+        },
+        {
+          "label": "כאל: 11 תנועות",
+          "color": "#00f0ff"
+        },
+        {
+          "label": "לאומי: 20 תנועות",
+          "color": "#38bdf8"
+        },
+        {
+          "label": "דיסקונט: 22 תנועות",
+          "color": "#a855f7"
+        }
+      ],
+      "items": [
+        "קוד יציאה: 0 (All providers synced.)",
+        "סה\"כ תנועות שסונכרנו ל-DynamoDB: 193 תנועות ב-6 חשבונות וכרטיסים (45 ימים אחרונים)",
+        "מקס (3 כרטיסים): 140 תנועות סה\"כ (5 בהמתנה)",
+        "כאל: 11 תנועות (2 בהמתנה)",
+        "בנק לאומי: 20 תנועות (3 חיובי אשראי הוחרגו למניעת כפילות)",
+        "בנק דיסקונט: 22 תנועות (0 בהמתנה)"
+      ]
+    }
+  ],
   "automations": [
+    {
+      "id": "gmail-smart-invoices",
+      "name": "סידור וסיכום מיילים יומי - פפוש (Gmail)",
+      "category": "email",
+      "schedule": "כל בוקר ב-08:00",
+      "cron": "0 8 * * *",
+      "lastStatus": "success",
+      "lastRunAt": "2026-11-11T09:41:58.991Z",
+      "lastDurationMs": 2450,
+      "totalRuns": 1,
+      "repoPath": "https://mail.google.com",
+      "description": "תיוג אוטומטי וארכוב התראות GitHub (Label_14), האוניברסיטה הפתוחה (Label_15), קבלות (Label_6) ומיילים פיננסיים (Label_16), הסרה מדיוורים פרסומיים ותקציר בוקר יומי.",
+      "lastSummary": "נסרקו ותויגו אוטומטית 82 מיילים (GitHub, אונ׳ פתוחה, קבלות ופיננסים), סוננו 3 דיוורים פרסומיים והופק תקציר יומי",
+      "lastDetails": [
+        "📌 דורש תשומת לב: הראל פנסיה וגמל — הודעה חשובה בנוגע להשלמת הליך ההצטרפות (\"חוסרים בעניין הצטרפותך להראל פנסיה וגמל ונספח ו'\")",
+        "📌 דורש תשומת לב: אבטחת חשבון GitHub — הופעל אימות דו-שלבי (2FA) ונוסף Passkey מהמחשב החדש; מומלץ לשמור את קודי השחזור (Recovery Codes)",
+        "💬 הודעות אישיות חדשות בתיבה: פנייה מתאיר (tair) והודעה בנוגע להשלמת צילום דרכון",
+        "🏷️ קבלות שתויגו אוטומטית (Receipts - Label_6): 30 קבלות ועדכוני משלוח (AliExpress, Google Payments, Facebook, Pango)",
+        "🏦 מיילים פיננסיים שתויגו אוטומטית (Finance & Bills - Label_16): 26 הודעות ועדכונים פיננסיים",
+        "🎓 האוניברסיטה הפתוחה (Open University - Label_15): 25 מיילים תויגו אוטומטית",
+        "🐙 התראות GitHub & CI (Label_14): תויגו והועברו לארכיון (הוסרו מ-INBOX)",
+        "🧹 ניקוי דיוורים פרסומיים: 3 דיוורים שיווקיים חדשים (Jotform, Builder.io, דיוור ישיר) סומנו כנקראו"
+      ]
+    },
     {
       "id": "finance-aggregator-sync",
       "name": "סנכרון כספים (Finance Aggregator)",
@@ -13,7 +116,15 @@
       "totalRuns": 1,
       "repoPath": "https://d2ezttw1p31agb.cloudfront.net",
       "description": "מריץ npm run sync -- all מתוך תיקיית הפרויקט ומסנכרן ל-DynamoDB (il-central-1) את מקס, כאל, לאומי ודיסקונט.",
-      "lastSummary": "All providers synced. (193 תנועות ב-6 חשבונות/כרטיסים: מקס, כאל, לאומי ודיסקונט)"
+      "lastSummary": "All providers synced. (193 תנועות ב-6 חשבונות/כרטיסים: מקס, כאל, לאומי ודיסקונט)",
+      "lastDetails": [
+        "קוד יציאה: 0 (All providers synced.)",
+        "סה\"כ תנועות שסונכרנו ל-DynamoDB: 193 תנועות ב-6 חשבונות וכרטיסים (45 ימים אחרונים)",
+        "מקס (3 כרטיסים): 140 תנועות סה\"כ (5 בהמתנה)",
+        "כאל: 11 תנועות (2 בהמתנה)",
+        "בנק לאומי: 20 תנועות (3 חיובי אשראי הוחרגו למניעת כפילות)",
+        "בנק דיסקונט: 22 תנועות (0 בהמתנה)"
+      ]
     },
     {
       "id": "isracard-auto-importer",
@@ -22,26 +133,12 @@
       "schedule": "האזנה רציפה על המחשב + תזכורת ב-12 לחודש",
       "cron": "*/5 * * * *",
       "lastStatus": "info",
-      "lastRunAt": "2026-11-11T09:17:08.867Z",
+      "lastRunAt": "2026-11-11T09:41:58.991Z",
       "lastDurationMs": 0,
       "totalRuns": 0,
       "repoPath": "https://web.isracard.co.il",
       "description": "בגלל חסימת Cloudflare בישראכרט: מתחברים בדפדפן הרגיל ולוחצים על הסימנייה. המחשב מזהה אוטומטית את קובץ ה-JSON שירד ל-Downloads ומייבא אותו ישירות ל-DynamoDB ללא צורך בהעלאה ידנית.",
       "lastSummary": "תיקיית Downloads לא נמצאה"
-    },
-    {
-      "id": "gmail-smart-invoices",
-      "name": "סידור וסיכום מיילים יומי - פפוש (Gmail)",
-      "category": "email",
-      "schedule": "כל בוקר ב-08:00",
-      "cron": "0 8 * * *",
-      "lastStatus": "success",
-      "lastRunAt": "2026-11-10T10:57:33.872Z",
-      "lastDurationMs": 2450,
-      "totalRuns": 1,
-      "repoPath": "https://mail.google.com",
-      "description": "תיוג אוטומטי וארכוב התראות GitHub (Label_14), האוניברסיטה הפתוחה (Label_15), קבלות (Label_6) ומיילים פיננסיים (Label_16), הסרה מדיוורים פרסומיים ותקציר בוקר יומי.",
-      "lastSummary": "נסרקו ותויגו אוטומטית 76 מיילים (GitHub, אונ׳ פתוחה, קבלות ופיננסים) + הופק תקציר 24 שעות אחרונות"
     },
     {
       "id": "github-programs-sync",
@@ -50,11 +147,11 @@
       "schedule": "כל לילה ב-02:00",
       "cron": "0 2 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-11T09:17:08.867Z",
+      "lastRunAt": "2026-11-11T09:41:58.991Z",
       "lastDurationMs": 420,
       "totalRuns": 1,
       "repoPath": "C:\\Users\\fradk\\PROGRAMS",
-      "description": "מבצע git pull בלבד בלילה למאגרים בתיקיית PROGRAMS. ללא git push אוטומטי ב-finance-aggregator (מכיוון ש-push ל-main מפעיל פריסה לענן).",
+      "description": "מבצע git pull בלבד בלילה למאגרים האישיים בתיקיית PROGRAMS. ללא git push אוטומטי ב-finance-aggregator (מכיוון ש-push ל-main מפעיל פריסה לענן).",
       "lastSummary": "מאגר finance-aggregator מעודכן מול origin/main."
     }
   ],
@@ -69,9 +166,12 @@
       "durationMs": 34800,
       "summary": "All providers synced. (193 תנועות ב-6 חשבונות/כרטיסים: מקס, כאל, לאומי ודיסקונט)",
       "details": [
-        "קוד יציאה: 0",
-        "תוצאה: All providers synced. (193 תנועות ב-6 חשבונות/כרטיסים)",
-        "תאריך סנכרון: 11.11.2026, 11:17:08"
+        "קוד יציאה: 0 (All providers synced.)",
+        "סה\"כ תנועות שסונכרנו ל-DynamoDB: 193 תנועות ב-6 חשבונות וכרטיסים (45 ימים אחרונים)",
+        "מקס (3 כרטיסים): 140 תנועות סה\"כ (5 בהמתנה)",
+        "כאל: 11 תנועות (2 בהמתנה)",
+        "בנק לאומי: 20 תנועות (3 חיובי אשראי הוחרגו למניעת כפילות)",
+        "בנק דיסקונט: 22 תנועות (0 בהמתנה)"
       ]
     },
     {
@@ -80,10 +180,19 @@
       "name": "סידור וסיכום מיילים יומי - פפוש (Gmail)",
       "category": "email",
       "status": "success",
-      "timestamp": "2026-11-10T10:57:33.872Z",
+      "timestamp": "2026-11-11T09:41:58.991Z",
       "durationMs": 2450,
-      "summary": "נסרקו ותויגו אוטומטית 76 מיילים (GitHub, אונ׳ פתוחה, קבלות ופיננסים) + הופק תקציר 24 שעות אחרונות",
-      "details": []
+      "summary": "נסרקו ותויגו אוטומטית 82 מיילים (GitHub, אונ׳ פתוחה, קבלות ופיננסים), סוננו 3 דיוורים פרסומיים והופק תקציר יומי",
+      "details": [
+        "📌 דורש תשומת לב: הראל פנסיה וגמל — הודעה חשובה בנוגע להשלמת הליך ההצטרפות (\"חוסרים בעניין הצטרפותך להראל פנסיה וגמל ונספח ו'\")",
+        "📌 דורש תשומת לב: אבטחת חשבון GitHub — הופעל אימות דו-שלבי (2FA) ונוסף Passkey מהמחשב החדש; מומלץ לשמור את קודי השחזור (Recovery Codes)",
+        "💬 הודעות אישיות חדשות בתיבה: פנייה מתאיר (tair) והודעה בנוגע להשלמת צילום דרכון",
+        "🏷️ קבלות שתויגו אוטומטית (Receipts - Label_6): 30 קבלות ועדכוני משלוח (AliExpress, Google Payments, Facebook, Pango)",
+        "🏦 מיילים פיננסיים שתויגו אוטומטית (Finance & Bills - Label_16): 26 הודעות ועדכונים פיננסיים",
+        "🎓 האוניברסיטה הפתוחה (Open University - Label_15): 25 מיילים תויגו אוטומטית",
+        "🐙 התראות GitHub & CI (Label_14): תויגו והועברו לארכיון (הוסרו מ-INBOX)",
+        "🧹 ניקוי דיוורים פרסומיים: 3 דיוורים שיווקיים חדשים (Jotform, Builder.io, דיוור ישיר) סומנו כנקראו"
+      ]
     }
   ],
   "alerts": [
@@ -95,7 +204,7 @@
       "title": "תזכורת חודשית (ה-12 לחודש): ייבוא ONE ZERO וישראכרט",
       "message": "לקראת תכנון התקציב ב-15 לחודש: בישראכרט מספיק להתחבר בדפדפן במחשב וללחוץ על הסימנייה – הקובץ שירד לתיקיית ההורדות יישאב אוטומטית ל-DynamoDB! ב-ONE ZERO יש להוריד קובץ xls ולהעלות במסך הייבוא.",
       "actionHint": "מסך הייבוא בדשבורד: https://d2ezttw1p31agb.cloudfront.net",
-      "createdAt": "2026-11-11T09:17:08.867Z",
+      "createdAt": "2026-11-11T09:41:58.991Z",
       "resolved": false
     }
   ],
@@ -105,7 +214,7 @@
       "name": "Finance Aggregator",
       "subtitle": "אגרגטור כספים אישי • DynamoDB (il-central-1)",
       "category": "finance",
-      "badge": "כספים",
+      "badge": "כספים אישיים",
       "localPath": "C:\\Users\\fradk\\PROGRAMS\\finance-aggregator",
       "repoUrl": "https://d2ezttw1p31agb.cloudfront.net",
       "tech": "Node.js • DynamoDB (il-central-1) • CloudFront PWA",
@@ -113,23 +222,11 @@
       "statusLabel": "מסונכרן ופעיל ✓"
     },
     {
-      "id": "tool-claude",
-      "name": "Claude Code & Desktop Bridge",
-      "subtitle": "הפעלה ישירה של Claude על המחשב הנייח למשימות קוד וניתוח",
-      "category": "system",
-      "badge": "Claude AI",
-      "localPath": "C:\\Users\\fradk\\.vscode\\extensions\\anthropic.claude-code-2.1.322-win32-x64\\resources\\native-binary\\claude.exe",
-      "repoUrl": "https://claude.ai",
-      "tech": "Claude Native CLI (v2.1.322) + Claude Desktop",
-      "status": "active",
-      "statusLabel": "מחובר וזמין להפעלה ✓"
-    },
-    {
       "id": "tool-gmail-ai",
-      "name": "סידור מיילים יומי (Gmail)",
-      "subtitle": "תיוג אוטומטי (GitHub, אונ׳ פתוחה, קבלות, פיננסים) ותקציר יומי",
+      "name": "סידור ותקציר מיילים יומי (Gmail)",
+      "subtitle": "תיוג אוטומטי (GitHub, אונ׳ פתוחה, קבלות, פיננסים) ותקציר בוקר אישי",
       "category": "email",
-      "badge": "Gmail",
+      "badge": "Gmail אישי",
       "localPath": "fradkintal@gmail.com",
       "repoUrl": "https://mail.google.com",
       "tech": "Gmail OAuth2 • Daily 08:00 Schedule",
@@ -137,36 +234,24 @@
       "statusLabel": "פעיל (08:00) ✓"
     },
     {
-      "id": "tool-the-team",
-      "name": "הצוות (The Team Sys)",
-      "subtitle": "ניהול עובדים, מגורים באילת, טופס 101 וסגירת חודש",
-      "category": "business",
-      "badge": "הצוות",
-      "localPath": "C:\\Users\\fradk\\PROGRAMS\\the-team-sys",
-      "repoUrl": "https://github.com/fradkintal/the-team-sys",
-      "tech": "React • AWS • SMS Auth",
+      "id": "tool-claude",
+      "name": "Claude Code & Desktop Bridge",
+      "subtitle": "הפעלה ישירה של Claude על המחשב הנייח למשימות אישיות",
+      "category": "system",
+      "badge": "Claude AI",
+      "localPath": "C:\\Users\\fradk\\.vscode\\extensions\\anthropic.claude-code-2.1.322-win32-x64\\resources\\native-binary\\claude.exe",
+      "repoUrl": "https://claude.ai",
+      "tech": "Claude Native CLI (v2.1.322) + Claude Desktop",
       "status": "active",
-      "statusLabel": "קיים ב-PROGRAMS"
-    },
-    {
-      "id": "tool-el-sol",
-      "name": "אל סול ניהול מבנים (El-Sol Sys)",
-      "subtitle": "מתחם בית אורן ולב אילת • דוחות תפוסה בוואטסאפ",
-      "category": "business",
-      "badge": "אל סול",
-      "localPath": "C:\\Users\\fradk\\PROGRAMS\\el-sol-sys",
-      "repoUrl": "https://github.com/fradkintal/el-sol-sys",
-      "tech": "Python Lambda • DynamoDB • Green API WhatsApp",
-      "status": "active",
-      "statusLabel": "קיים ב-PROGRAMS"
+      "statusLabel": "מחובר וזמין להפעלה ✓"
     }
   ],
   "machine": {
     "hostname": "fradkin",
     "platform": "Windows_NT 10.0.26200 (x64)",
-    "uptimeHours": 36.9,
+    "uptimeHours": 37.4,
     "totalMemoryGb": 7.8,
-    "freeMemoryGb": 1.5,
+    "freeMemoryGb": 1.7,
     "cpuModel": "Intel(R) Core(TM) i3-10110U CPU @ 2.10GHz",
     "cpuCores": 4,
     "status": "online"

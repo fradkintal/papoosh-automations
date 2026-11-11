@@ -17,7 +17,8 @@ export class PapooshReporter {
     return {
       updatedAt: new Date().toISOString(),
       machine: {},
-      summary: { totalAutomations: 0, healthyCount: 0, warningCount: 0, errorCount: 0, runsToday: 0 },
+      summary: { totalAutomations: 0, healthyCount: 0, warningCount: 0, errorCount: 0, runsToday: 0, openAlerts: 0 },
+      dailyDigests: [],
       automations: [],
       recentRuns: [],
       alerts: [],
@@ -38,6 +39,9 @@ export class PapooshReporter {
       status: 'online'
     };
 
+    // Keep only non-resolved alerts in telemetry
+    data.alerts = (data.alerts || []).filter((al) => !al.resolved);
+
     // Recompute summary counters
     const automations = data.automations || [];
     data.summary = {
@@ -46,7 +50,7 @@ export class PapooshReporter {
       warningCount: automations.filter((a) => a.lastStatus === 'warning').length,
       errorCount: automations.filter((a) => a.lastStatus === 'error').length,
       runsToday: (data.recentRuns || []).length,
-      openAlerts: (data.alerts || []).filter((al) => !al.resolved).length
+      openAlerts: data.alerts.length
     };
 
     fs.mkdirSync(path.dirname(telemetryPath), { recursive: true });
@@ -65,6 +69,13 @@ export class PapooshReporter {
     return data;
   }
 
+  static dismissAlert(alertId, { syncToGit = false } = {}) {
+    const data = this.loadTelemetry();
+    data.alerts = (data.alerts || []).filter((al) => al.id !== alertId);
+    data.dismissedAlertIds = Array.from(new Set([...(data.dismissedAlertIds || []), alertId]));
+    return this.saveTelemetry(data, { syncToGit });
+  }
+
   static reportRun({
     automationId,
     name,
@@ -73,6 +84,7 @@ export class PapooshReporter {
     summary = '',
     durationMs = 1200,
     details = [],
+    digest = null,
     alert = null,
     syncToGit = false
   }) {
@@ -98,13 +110,30 @@ export class PapooshReporter {
       existingAuto.lastRunAt = now;
       existingAuto.lastSummary = summary;
       existingAuto.lastDurationMs = durationMs;
+      if (details && details.length > 0) {
+        existingAuto.lastDetails = details;
+      }
       existingAuto.totalRuns = (existingAuto.totalRuns || 0) + 1;
+    }
+
+    if (digest) {
+      const others = (data.dailyDigests || []).filter((d) => d.automationId !== automationId);
+      data.dailyDigests = [
+        {
+          id: `digest-${automationId}-${Date.now()}`,
+          automationId,
+          category,
+          updatedAt: now,
+          ...digest
+        },
+        ...others
+      ].slice(0, 10);
     }
 
     if (alert) {
       data.alerts = [
         {
-          id: `alert-${Date.now()}`,
+          id: alert.id || `alert-${Date.now()}`,
           automationId,
           category,
           severity: alert.severity || (status === 'error' ? 'critical' : 'warning'),

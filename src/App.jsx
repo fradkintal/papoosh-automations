@@ -9,7 +9,6 @@ import {
   Terminal,
   Wallet,
   Mail,
-  Building2,
   Calendar,
   Cpu,
   Play,
@@ -26,15 +25,15 @@ import {
   MessageSquare,
   Send,
   Link2,
-  Bot
+  Bot,
+  FileText
 } from 'lucide-react';
 import { APP_VERSION } from './version.js';
 
 const CATEGORY_META = {
   all: { label: 'הכל', icon: Layers, color: '#00f0ff', bg: 'rgba(0, 240, 255, 0.14)' },
+  email: { label: 'מיילים ותקציר יומי', icon: Mail, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)' },
   finance: { label: 'כספים ובנקים', icon: Wallet, color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)' },
-  email: { label: 'מיילים וחשבוניות', icon: Mail, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)' },
-  business: { label: 'אל סול והצוות', icon: Building2, color: '#e879f9', bg: 'rgba(232, 121, 249, 0.16)' },
   calendar: { label: 'יומן ותזכורות', icon: Calendar, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.16)' },
   system: { label: 'מחשב נייח ו-Claude', icon: Cpu, color: '#a855f7', bg: 'rgba(168, 85, 247, 0.16)' }
 };
@@ -45,6 +44,27 @@ const STATUS_META = {
   error: { label: 'תקלה • נכשל', pillClass: 'pill-error', accentClass: 'card-accent-error', icon: XCircle },
   info: { label: 'פעיל / מוכן', pillClass: 'pill-info', accentClass: 'card-accent-info', icon: Sparkles }
 };
+
+const DISMISSED_ALERTS_STORAGE_KEY = 'papoosh_dismissed_alerts_v1';
+
+function loadDismissedAlertsFromStorage() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_ALERTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDismissedAlertsToStorage(ids) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(DISMISSED_ALERTS_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // ignore storage errors
+  }
+}
 
 function formatRelativeTime(isoString) {
   if (!isoString) return 'טרם הורץ';
@@ -81,6 +101,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [telemetry, setTelemetry] = useState(() => embedded?.telemetry || null);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState(() => loadDismissedAlertsFromStorage());
   const [bridge, setBridge] = useState(null);
   const [localBridgeOnline, setLocalBridgeOnline] = useState(false);
   const [versionInfo, setVersionInfo] = useState(() => embedded?.version || APP_VERSION);
@@ -196,21 +217,39 @@ export default function App() {
     };
   }, [fetchLiveTelemetryAndVersion]);
 
-  const handleToggleResolveAlert = (alertId) => {
-    if (!telemetry) return;
-    const updatedAlerts = telemetry.alerts.map((al) =>
-      al.id === alertId ? { ...al, resolved: !al.resolved } : al
-    );
-    setTelemetry({
-      ...telemetry,
-      alerts: updatedAlerts,
-      summary: {
-        ...telemetry.summary,
-        openAlerts: updatedAlerts.filter((a) => !a.resolved).length
+  // Dismiss alert -> disappears completely from screen + persists in localStorage + notifies PC bridge
+  const handleDismissAlert = useCallback(
+    async (alertId) => {
+      const updatedDismissed = Array.from(new Set([...dismissedAlertIds, alertId]));
+      setDismissedAlertIds(updatedDismissed);
+      saveDismissedAlertsToStorage(updatedDismissed);
+
+      if (telemetry) {
+        const remainingAlerts = (telemetry.alerts || []).filter((al) => al.id !== alertId);
+        setTelemetry({
+          ...telemetry,
+          alerts: remainingAlerts,
+          summary: {
+            ...telemetry.summary,
+            openAlerts: remainingAlerts.length
+          }
+        });
       }
-    });
-    showToast('סטטוס ההתראה עודכן!');
-  };
+
+      showToast('ההתראה סומנה כטופלה והוסרה מהמסך ✓');
+
+      try {
+        await fetch('http://localhost:4041/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'dismiss-alert', alertId })
+        });
+      } catch {
+        // Local bridge not reachable (away from home Wi-Fi); localStorage already persists dismissal on phone
+      }
+    },
+    [dismissedAlertIds, telemetry, showToast]
+  );
 
   const handleSendBridgeAction = async (type, customText = '') => {
     setIsSendingInstruction(true);
@@ -233,10 +272,9 @@ export default function App() {
         return;
       }
     } catch {
-      // Fallback if away from home Wi-Fi: open pre-filled GitHub Issue dispatch or local queue
+      // Fallback if away from home Wi-Fi
     }
 
-    // Add to local state & offer 1-tap GitHub cloud dispatch when outside home network
     const newMsg = {
       id: `msg-${Date.now()}`,
       sender: 'tal',
@@ -253,27 +291,45 @@ export default function App() {
     showToast('ההוראה נרשמה בגשר פפוש!');
   };
 
+  const filteredDigests = useMemo(() => {
+    if (!telemetry?.dailyDigests) return [];
+    return telemetry.dailyDigests.filter(
+      (d) => selectedCategory === 'all' || d.category === selectedCategory
+    );
+  }, [telemetry, selectedCategory]);
+
   const filteredAutomations = useMemo(() => {
     if (!telemetry?.automations) return [];
-    return telemetry.automations.filter((a) => {
-      const catMatch = selectedCategory === 'all' || a.category === selectedCategory;
-      const statusMatch = statusFilter === 'all' || a.lastStatus === statusFilter;
-      return catMatch && statusMatch;
-    });
+    return telemetry.automations
+      .filter((a) => a.category !== 'business')
+      .filter((a) => {
+        const catMatch = selectedCategory === 'all' || a.category === selectedCategory;
+        const statusMatch = statusFilter === 'all' || a.lastStatus === statusFilter;
+        return catMatch && statusMatch;
+      });
   }, [telemetry, selectedCategory, statusFilter]);
 
   const filteredRuns = useMemo(() => {
     if (!telemetry?.recentRuns) return [];
-    return telemetry.recentRuns.filter((r) => {
-      const catMatch = selectedCategory === 'all' || r.category === selectedCategory;
-      const statusMatch = statusFilter === 'all' || r.status === statusFilter;
-      return catMatch && statusMatch;
-    });
+    return telemetry.recentRuns
+      .filter((r) => r.category !== 'business')
+      .filter((r) => {
+        const catMatch = selectedCategory === 'all' || r.category === selectedCategory;
+        const statusMatch = statusFilter === 'all' || r.status === statusFilter;
+        return catMatch && statusMatch;
+      });
   }, [telemetry, selectedCategory, statusFilter]);
 
   const openAlerts = useMemo(() => {
     if (!telemetry?.alerts) return [];
-    return telemetry.alerts.filter((al) => !al.resolved);
+    return telemetry.alerts.filter(
+      (al) => !al.resolved && !dismissedAlertIds.includes(al.id) && al.category !== 'business'
+    );
+  }, [telemetry, dismissedAlertIds]);
+
+  const personalTools = useMemo(() => {
+    if (!telemetry?.tools) return [];
+    return telemetry.tools.filter((t) => t.category !== 'business');
   }, [telemetry]);
 
   const summary = telemetry?.summary || {
@@ -285,7 +341,7 @@ export default function App() {
     openAlerts: 0
   };
 
-  const cliSnippet = `node C:\\Users\\fradk\\PROGRAMS\\papoosh-automations\\agent\\papoosh-cli.js report --id "my-script" --name "בדיקת מערכת" --category "business" --status "success" --summary "הריצה הסתיימה בהצלחה" --push`;
+  const cliSnippet = `node C:\\Users\\fradk\\PROGRAMS\\papoosh-automations\\agent\\papoosh-cli.js report --id "my-personal-task" --name "אוטומציה אישית" --category "email" --status "success" --summary "התקציר היומי מוכן" --details "שורה 1 בתקציר|שורה 2 בתקציר" --push`;
 
   return (
     <div className="app-shell">
@@ -344,7 +400,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Hero Brand Header (Mobile Optimized, No Download Buttons) */}
+      {/* Hero Brand Header (Mobile Optimized, Personal Hub) */}
       <header className="hero-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
@@ -365,11 +421,11 @@ export default function App() {
                     borderRadius: '999px'
                   }}
                 >
-                  פפוש אוטומציות
+                  פפוש אוטומציות אישי
                 </span>
               </div>
               <div style={{ fontSize: '0.84rem', color: '#cbd5e1', marginTop: '2px', fontWeight: 500 }}>
-                חמ״ל האוטומציות, הקישורים והסוכנים של טל
+                חמ״ל האוטומציות האישיות, התקצירים והסוכנים של טל
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: '#34d399', fontWeight: 700 }}>
@@ -435,11 +491,11 @@ export default function App() {
           style={{ cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', color: '#bae6fd', fontWeight: 700 }}>הרצות אמיתיות</span>
-            <Activity size={19} color="#00f0ff" />
+            <span style={{ fontSize: '0.78rem', color: '#bae6fd', fontWeight: 700 }}>תקצירים והרצות</span>
+            <FileText size={19} color="#00f0ff" />
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#00f0ff', marginTop: '4px' }}>
-            {summary.runsToday}
+            {filteredDigests.length || summary.runsToday}
           </div>
           <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '2px' }}>
             עודכן {formatRelativeTime(telemetry?.updatedAt)}
@@ -452,13 +508,15 @@ export default function App() {
           style={{ cursor: 'pointer' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', color: '#fde68a', fontWeight: 700 }}>התראות ותזכורות</span>
+            <span style={{ fontSize: '0.78rem', color: '#fde68a', fontWeight: 700 }}>התראות פתוחות</span>
             <AlertTriangle size={19} color="#fbbf24" />
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#fbbf24', marginTop: '4px' }}>
             {openAlerts.length}
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '2px' }}>צהוב = תזכורת פעילה</div>
+          <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '2px' }}>
+            {openAlerts.length === 0 ? 'אין התראות פתוחות ✓' : 'נעלמות בסימון כטופל'}
+          </div>
         </div>
 
         <div
@@ -482,7 +540,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Category Filter Bar */}
+      {/* Category Filter Bar (Strictly Personal Categories) */}
       <div style={{ marginTop: '14px', marginBottom: '12px' }}>
         <div className="chip-row">
           {Object.entries(CATEGORY_META).map(([key, meta]) => {
@@ -505,12 +563,13 @@ export default function App() {
       {/* TAB 1: DASHBOARD (חמ"ל פפוש ראשי) */}
       {activeTab === 'dashboard' && (
         <main>
+          {/* Open Alerts (disappear immediately when marked resolved!) */}
           {openAlerts.length > 0 && (
             <section style={{ marginBottom: '18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <h2 style={{ margin: 0, fontSize: '1.04rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Bell size={18} color="#fbbf24" />
-                  <span>התראות ותזכורות ({openAlerts.length})</span>
+                  <span>התראות ותזכורות פעילות ({openAlerts.length})</span>
                 </h2>
               </div>
 
@@ -549,12 +608,120 @@ export default function App() {
                         )}
                       </div>
                       <button
-                        className="btn-secondary"
-                        style={{ flexShrink: 0, fontSize: '0.74rem', padding: '6px 10px' }}
-                        onClick={() => handleToggleResolveAlert(al.id)}
+                        className="btn-neon"
+                        style={{ flexShrink: 0, fontSize: '0.76rem', padding: '8px 12px' }}
+                        onClick={() => handleDismissAlert(al.id)}
                       >
-                        סמן כטופל ✓
+                        <Check size={14} />
+                        <span>טופל (העלים)</span>
                       </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          )}
+
+          {/* Daily Summaries & Digests (תקצירים וסיכומים יומיים - כמו סידור המיילים) */}
+          {filteredDigests.length > 0 && (
+            <section style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <h2 style={{ margin: 0, fontSize: '1.06rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FileText size={19} color="#38bdf8" />
+                  <span>תקצירים וסיכומים יומיים ({filteredDigests.length})</span>
+                </h2>
+              </div>
+
+              {filteredDigests.map((digest) => {
+                const cat = CATEGORY_META[digest.category] || CATEGORY_META.email;
+                const CatIcon = cat.icon;
+
+                return (
+                  <div
+                    key={digest.id}
+                    className="glass-card card-accent-info"
+                    style={{
+                      background: 'linear-gradient(155deg, rgba(15, 23, 42, 0.95), rgba(8, 20, 42, 0.92))',
+                      border: '1px solid rgba(56, 189, 248, 0.35)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span
+                          className="pill"
+                          style={{ background: cat.bg, color: cat.color, border: `1px solid ${cat.color}44` }}
+                        >
+                          <CatIcon size={13} />
+                          {cat.label}
+                        </span>
+                        {digest.scheduleLabel && (
+                          <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 700 }}>
+                            ⏰ {digest.scheduleLabel}
+                          </span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 700 }}>
+                        עודכן {formatRelativeTime(digest.updatedAt)} ({formatTimeHM(digest.updatedAt)})
+                      </span>
+                    </div>
+
+                    <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#ffffff', marginBottom: '4px' }}>
+                      {digest.title}
+                    </div>
+                    <div style={{ fontSize: '0.86rem', color: '#bae6fd', marginBottom: '10px', fontWeight: 600 }}>
+                      {digest.headline}
+                    </div>
+
+                    {digest.badges && digest.badges.length > 0 && (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                        {digest.badges.map((b, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              padding: '3px 10px',
+                              borderRadius: '999px',
+                              background: `${b.color}20`,
+                              color: b.color,
+                              border: `1px solid ${b.color}55`
+                            }}
+                          >
+                            {b.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        background: 'rgba(4, 7, 17, 0.85)',
+                        borderRadius: '14px',
+                        padding: '12px 14px',
+                        border: '1px solid rgba(148, 163, 184, 0.16)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}
+                    >
+                      {(digest.items || []).map((item, idx) => {
+                        const isActionRequired = item.includes('דורש תשומת לב') || item.includes('הודעות אישיות');
+                        return (
+                          <div
+                            key={idx}
+                            style={{
+                              fontSize: '0.85rem',
+                              lineHeight: 1.5,
+                              color: isActionRequired ? '#fef08a' : '#e2e8f0',
+                              fontWeight: isActionRequired ? 700 : 500,
+                              paddingBottom: idx < digest.items.length - 1 ? '7px' : 0,
+                              borderBottom: idx < digest.items.length - 1 ? '1px solid rgba(148, 163, 184, 0.1)' : 'none'
+                            }}
+                          >
+                            {item}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -567,7 +734,7 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
               <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Activity size={18} color="#00f0ff" />
-                <span>תוצאות הרצות אמיתיות ({filteredRuns.length})</span>
+                <span>יומן הרצות אמיתיות ({filteredRuns.length})</span>
               </h2>
             </div>
 
@@ -622,10 +789,10 @@ export default function App() {
                       }}
                     >
                       <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#00f0ff', marginBottom: '6px' }}>
-                        פלט הרצה מאומת:
+                        תקציר ופלט הרצה מלא:
                       </div>
                       {run.details.map((line, idx) => (
-                        <div key={idx} style={{ fontSize: '0.82rem', color: '#e2e8f0', padding: '3px 0' }}>
+                        <div key={idx} style={{ fontSize: '0.82rem', color: '#e2e8f0', padding: '4px 0' }}>
                           {line}
                         </div>
                       ))}
@@ -649,12 +816,11 @@ export default function App() {
                   גשר פפוש חי: המחשב הנייח ⬅ השיחה ⬅ Claude
                 </h2>
                 <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
-                  שלח הוראות להוספת אוטומציות, חיפוש קישורים אונליין, שאיבת ישראכרט או הפעלת Claude על המחשב.
+                  שלח הוראות להוספת אוטומציות אישיות, חיפוש קישורים אונליין, שאיבת ישראכרט או הפעלת Claude על המחשב.
                 </div>
               </div>
             </div>
 
-            {/* Target selector */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
               <button
                 className={`filter-chip ${instructionTarget === 'agent' ? 'active' : ''}`}
@@ -733,7 +899,7 @@ export default function App() {
           <section style={{ marginBottom: '18px' }}>
             <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Link2 size={18} color="#00f0ff" />
-              <span>קישורים שמורים וממצאים מהשיחה ({bridge?.links?.length || 0})</span>
+              <span>קישורים אישיים שמורים ({bridge?.links?.length || 0})</span>
             </h3>
             {(bridge?.links || []).map((lnk) => (
               <div key={lnk.id} className="glass-card card-accent-info" style={{ padding: '13px 15px' }}>
@@ -779,12 +945,12 @@ export default function App() {
         </main>
       )}
 
-      {/* TAB 3: AUTOMATIONS (כל האוטומציות במחשב) */}
+      {/* TAB 3: AUTOMATIONS (האוטומציות האישיות במחשב) */}
       {activeTab === 'automations' && (
         <main>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
             <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800 }}>
-              האוטומציות הפעילות במחשב ({filteredAutomations.length})
+              האוטומציות האישיות הפעילות במחשב ({filteredAutomations.length})
             </h2>
             <button className="btn-secondary" onClick={() => setStatusFilter('all')}>
               הצג הכל
@@ -818,7 +984,7 @@ export default function App() {
 
                     <div
                       style={{
-                        padding: '8px 12px',
+                        padding: '10px 12px',
                         borderRadius: '12px',
                         background: 'rgba(15, 23, 42, 0.9)',
                         border: '1px solid rgba(148, 163, 184, 0.15)',
@@ -826,8 +992,18 @@ export default function App() {
                         color: '#e2e8f0'
                       }}
                     >
-                      <strong style={{ color: '#00f0ff' }}>דיווח אחרון ({formatRelativeTime(auto.lastRunAt)}): </strong>
-                      {auto.lastSummary}
+                      <strong style={{ color: '#00f0ff' }}>דיווח ותקציר אחרון ({formatRelativeTime(auto.lastRunAt)}): </strong>
+                      <span>{auto.lastSummary}</span>
+
+                      {auto.lastDetails && auto.lastDetails.length > 0 && (
+                        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(148, 163, 184, 0.15)' }}>
+                          {auto.lastDetails.map((line, i) => (
+                            <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', padding: '2px 0' }}>
+                              • {line}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '14px', marginTop: '10px', fontSize: '0.76rem', color: '#94a3b8', flexWrap: 'wrap' }}>
@@ -851,65 +1027,90 @@ export default function App() {
         </main>
       )}
 
-      {/* TAB 4: ALERTS & ERRORS (התראות ותקלות) */}
+      {/* TAB 4: ALERTS & ERRORS (התראות ותקלות - נעלמות מהמסך בסימון כטופל) */}
       {activeTab === 'alerts' && (
         <main>
-          <h2 style={{ margin: '0 0 12px 0', fontSize: '1.08rem', fontWeight: 800 }}>
-            מרכז התראות, תזכורות ותקלות ({telemetry?.alerts?.length || 0})
-          </h2>
-
-          {(telemetry?.alerts || []).map((al) => {
-            const isCrit = al.severity === 'critical';
-            const isInfo = al.severity === 'info';
-            const accent = isCrit ? 'card-accent-error' : isInfo ? 'card-accent-info' : 'card-accent-warning';
-            const pillClass = isCrit ? 'pill-error' : isInfo ? 'pill-info' : 'pill-warning';
-
-            return (
-              <div
-                key={al.id}
-                className={`glass-card ${accent}`}
-                style={{ opacity: al.resolved ? 0.55 : 1 }}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800 }}>
+              התראות ותזכורות פעילות ({openAlerts.length})
+            </h2>
+            {dismissedAlertIds.length > 0 && (
+              <button
+                className="btn-secondary"
+                style={{ fontSize: '0.75rem', padding: '6px 10px' }}
+                onClick={() => {
+                  setDismissedAlertIds([]);
+                  saveDismissedAlertsToStorage([]);
+                  fetchLiveTelemetryAndVersion(false);
+                }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                      <span className={`pill ${pillClass}`}>
-                        {al.resolved ? 'טופל ✓' : isCrit ? 'תקלה פתוחה' : isInfo ? 'תזכורת' : 'התראה'}
-                      </span>
-                      <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>{formatRelativeTime(al.createdAt)}</span>
-                    </div>
-                    <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{al.title}</div>
-                    <p style={{ margin: '6px 0', fontSize: '0.86rem', color: '#cbd5e1' }}>{al.message}</p>
-                    {al.actionHint && (
-                      <div style={{ fontSize: '0.8rem', color: '#00f0ff', fontWeight: 600 }}>
-                        💡 {al.actionHint}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => handleToggleResolveAlert(al.id)}
-                  >
-                    {al.resolved ? 'פתח מחדש' : 'סמן כטופל'}
-                  </button>
-                </div>
+                שחזר התראות שהוסתרו ({dismissedAlertIds.length})
+              </button>
+            )}
+          </div>
+
+          {openAlerts.length === 0 ? (
+            <div className="glass-card card-accent-success" style={{ textAlign: 'center', padding: '28px 18px' }}>
+              <CheckCircle2 size={36} color="#34d399" style={{ marginBottom: '8px' }} />
+              <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#ffffff' }}>
+                אין התראות פתוחות — הכל מטופל!
               </div>
-            );
-          })}
+              <div style={{ fontSize: '0.84rem', color: '#94a3b8', marginTop: '4px' }}>
+                כל ההתראות שסומנו כטופלו הוסרו מהמסך.
+              </div>
+            </div>
+          ) : (
+            openAlerts.map((al) => {
+              const isCrit = al.severity === 'critical';
+              const isInfo = al.severity === 'info';
+              const accent = isCrit ? 'card-accent-error' : isInfo ? 'card-accent-info' : 'card-accent-warning';
+              const pillClass = isCrit ? 'pill-error' : isInfo ? 'pill-info' : 'pill-warning';
+
+              return (
+                <div key={al.id} className={`glass-card ${accent}`}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <span className={`pill ${pillClass}`}>
+                          {isCrit ? 'תקלה פתוחה' : isInfo ? 'תזכורת' : 'התראה'}
+                        </span>
+                        <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>{formatRelativeTime(al.createdAt)}</span>
+                      </div>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{al.title}</div>
+                      <p style={{ margin: '6px 0', fontSize: '0.86rem', color: '#cbd5e1' }}>{al.message}</p>
+                      {al.actionHint && (
+                        <div style={{ fontSize: '0.8rem', color: '#00f0ff', fontWeight: 600 }}>
+                          💡 {al.actionHint}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="btn-neon"
+                      style={{ flexShrink: 0, fontSize: '0.76rem', padding: '8px 12px' }}
+                      onClick={() => handleDismissAlert(al.id)}
+                    >
+                      <Check size={14} />
+                      <span>טופל (העלים)</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </main>
       )}
 
-      {/* TAB 5: TOOLS HUB (ארגז הכלים והמערכות של טל) */}
+      {/* TAB 5: TOOLS HUB (ארגז הכלים האישיים של טל) */}
       {activeTab === 'tools' && (
         <main>
           <div style={{ marginBottom: '14px' }}>
             <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800 }}>
-              ארגז הכלים והמערכות של פפוש (`C:\Users\fradk\PROGRAMS`)
+              הכלים והמערכות האישיות של פפוש
             </h2>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
-            {(telemetry?.tools || []).map((tool) => (
+            {personalTools.map((tool) => (
               <div key={tool.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -988,7 +1189,7 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, color: '#00f0ff' }}>
                 <Terminal size={18} />
-                <span>פקודת דיווח מהירה מכל סקריפט במחשב</span>
+                <span>פקודת דיווח מהירה מכל סקריפט אישי במחשב</span>
               </div>
               <button
                 className="btn-secondary"
