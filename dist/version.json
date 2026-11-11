@@ -1,10 +1,18 @@
 {
-  "version": "1.0.0",
-  "buildNumber": 2,
-  "releasedAt": "2026-11-10T10:12:41.328Z",
+  "version": "1.0.1",
+  "buildNumber": 3,
+  "releasedAt": "2026-11-10T13:39:02.095Z",
   "environment": "production",
   "codename": "PAPOOSH Neon Core",
   "changelog": [
+    {
+      "version": "1.0.1",
+      "date": "2026-11-10",
+      "title": "עדכון Finance Aggregator (DynamoDB il-central-1, כללי פרטיות, בדיקת פרופיל finance-scraper והסרת נתוני דמה)",
+      "highlights": [
+        "עדכון Finance Aggregator (DynamoDB il-central-1, כללי פרטיות, בדיקת פרופיל finance-scraper והסרת נתוני דמה)"
+      ]
+    },
     {
       "version": "1.0.0",
       "date": "2026-11-10",

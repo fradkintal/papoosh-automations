@@ -168,56 +168,6 @@ export default function App() {
     };
   }, [fetchLiveTelemetryAndVersion]);
 
-  const handleTriggerSimulation = (auto) => {
-    if (!telemetry) return;
-    const nowIso = new Date().toISOString();
-    const newRun = {
-      id: `run-sim-${Date.now()}`,
-      automationId: auto.id,
-      name: auto.name,
-      category: auto.category,
-      status: 'success',
-      timestamp: nowIso,
-      durationMs: Math.floor(900 + Math.random() * 1800),
-      summary: `הרצת בדיקה יזומה מהטלפון הושלמה בהצלחה עבור "${auto.name}".`,
-      details: [
-        `✓ פקודת הפעלה התקבלה ממרכז השליטה של פפוש (${formatTimeHM(nowIso)})`,
-        `✓ נתיב יעד: ${auto.repoPath}`,
-        `✓ סטטוס ביצוע: תקין (0 שגיאות)`
-      ]
-    };
-
-    const updatedAutomations = telemetry.automations.map((item) =>
-      item.id === auto.id
-        ? {
-            ...item,
-            lastStatus: 'success',
-            lastRunAt: nowIso,
-            lastSummary: newRun.summary,
-            totalRuns: (item.totalRuns || 0) + 1
-          }
-        : item
-    );
-
-    const updatedTelemetry = {
-      ...telemetry,
-      updatedAt: nowIso,
-      automations: updatedAutomations,
-      recentRuns: [newRun, ...(telemetry.recentRuns || [])],
-      summary: {
-        ...telemetry.summary,
-        healthyCount: updatedAutomations.filter((a) => a.lastStatus === 'success').length,
-        warningCount: updatedAutomations.filter((a) => a.lastStatus === 'warning').length,
-        errorCount: updatedAutomations.filter((a) => a.lastStatus === 'error').length,
-        runsToday: (telemetry.summary?.runsToday || 0) + 1
-      }
-    };
-
-    setTelemetry(updatedTelemetry);
-    setExpandedRunId(newRun.id);
-    showToast(`האוטומציה "${auto.name}" הופעלה ודיווחה בהצלחה!`);
-  };
-
   const handleToggleResolveAlert = (alertId) => {
     if (!telemetry) return;
     const updatedAlerts = telemetry.alerts.map((al) =>
@@ -272,12 +222,12 @@ export default function App() {
   }, [telemetry]);
 
   const summary = telemetry?.summary || {
-    totalAutomations: 7,
-    healthyCount: 5,
-    warningCount: 1,
-    errorCount: 1,
-    runsToday: 6,
-    openAlerts: 3
+    totalAutomations: 0,
+    healthyCount: 0,
+    warningCount: 0,
+    errorCount: 0,
+    runsToday: 0,
+    openAlerts: 0
   };
 
   const cliSnippet = `node C:\\Users\\fradk\\PROGRAMS\\papoosh-automations\\agent\\papoosh-cli.js report --id "my-script" --name "בדיקת מערכת" --category "business" --status "success" --summary "הריצה הסתיימה בהצלחה" --push`;
@@ -724,18 +674,19 @@ export default function App() {
                     </div>
 
                     <div style={{ display: 'flex', gap: '14px', marginTop: '10px', fontSize: '0.76rem', color: '#94a3b8', flexWrap: 'wrap' }}>
-                      <span>סה״כ הפעלות: <strong style={{ color: '#fff' }}>{auto.totalRuns}</strong></span>
-                      <span>אחוז הצלחה: <strong style={{ color: '#34d399' }}>{auto.successRate}%</strong></span>
-                      <span>ריצה הבאה: <strong style={{ color: '#38bdf8' }}>{formatRelativeTime(auto.nextRunAt)}</strong></span>
+                      <span>הרצות אמיתיות שתועדו: <strong style={{ color: '#fff' }}>{auto.totalRuns || 0}</strong></span>
+                      <span>יעד: <strong style={{ color: '#38bdf8' }}>{auto.repoPath}</strong></span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                    <button className="btn-neon" onClick={() => handleTriggerSimulation(auto)}>
-                      <Play size={15} />
-                      <span>הפעל בדיקה</span>
-                    </button>
-                  </div>
+                  {auto.repoPath && String(auto.repoPath).startsWith('https://') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                      <a href={auto.repoPath} target="_blank" rel="noreferrer" className="btn-secondary">
+                        <ExternalLink size={14} />
+                        <span>פתח דשבורד</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             );

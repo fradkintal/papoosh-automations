@@ -1,279 +1,340 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import { execSync, spawnSync } from 'child_process';
 import { PapooshReporter } from './papoosh-sdk.js';
 
-const programsDir = 'C:\\Users\\fradk\\PROGRAMS';
+const FINANCE_DIR = 'C:\\Users\\fradk\\PROGRAMS\\finance-aggregator';
+const FINANCE_DASHBOARD_URL = 'https://d2ezttw1p31agb.cloudfront.net';
+const REQUIRED_AWS_PROFILE = 'finance-scraper';
 
-function inspectLocalRepos() {
-  const knownRepos = [
-    { name: 'finance-aggregator', label: 'Finance Aggregator', category: 'finance' },
-    { name: 'the-team-sys', label: 'הצוות (The Team Sys)', category: 'business' },
-    { name: 'el-sol-sys', label: 'אל סול (El-Sol Sys)', category: 'business' },
-    { name: 'tlator-web', label: 'Tlator Web (Firebase)', category: 'system' },
-    { name: 'The-Team-Official', label: 'אתר הצוות הרשמי', category: 'business' },
-    { name: 'papoosh-automations', label: 'פפוש אוטומציות (PAPOOSH Hub)', category: 'system' }
-  ];
+/**
+ * Checks whether the AWS profile `finance-scraper` exists in ~/.aws/config or ~/.aws/credentials
+ * without reading or logging any secret keys.
+ */
+function hasAwsProfile(profileName) {
+  const awsDir = path.join(os.homedir(), '.aws');
+  const files = ['config', 'credentials'];
+  const headerRegex = new RegExp(`^\\[(?:profile\\s+)?${profileName}\\]\\s*$`, 'm');
 
-  const found = [];
-  for (const repo of knownRepos) {
+  for (const file of files) {
+    const fullPath = path.join(awsDir, file);
     try {
-      const repoPath = path.join(programsDir, repo.name);
-      if (fs.existsSync(repoPath)) {
-        found.push({ ...repo, exists: true, path: repoPath });
-      } else {
-        found.push({ ...repo, exists: true, path: repoPath });
+      if (fs.existsSync(fullPath)) {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        if (headerRegex.test(content)) {
+          return true;
+        }
       }
     } catch {
-      found.push({ ...repo, exists: true, path: `${programsDir}\\${repo.name}` });
+      // Ignore read errors
     }
   }
-  return found;
+
+  try {
+    const out = execSync('aws configure list-profiles', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 4000
+    });
+    const profiles = out.split(/\r?\n/).map((s) => s.trim());
+    return profiles.includes(profileName);
+  } catch {
+    return false;
+  }
 }
 
-function buildInitialTelemetry() {
-  const now = Date.now();
-  const isoAgo = (minutes) => new Date(now - minutes * 60 * 1000).toISOString();
-  const isoFuture = (minutes) => new Date(now + minutes * 60 * 1000).toISOString();
+/**
+ * Sanitizes output from `npm run sync -- all` according to strict privacy rules:
+ * - Never log or store amounts, merchant names, card numbers, or passwords.
+ * - Extract only:
+ *   - Success: exit code 0 and "All providers synced." (+ optional total transactions count)
+ *   - Failure: exit code 1 and "Done with errors: <providers>" or "Sync failed: <reason>"
+ */
+function parseSafeFinanceOutput(exitCode, stdout, stderr) {
+  const combined = `${stdout || ''}\n${stderr || ''}`;
+  const lines = combined
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  // Extract transaction count if printed safely (e.g. "Synced X transactions" or similar number-only counter)
+  let txCountText = '';
+  for (const line of lines) {
+    const txMatch = line.match(/(\d+)\s+(?:transactions|תנועות)/i);
+    if (txMatch) {
+      txCountText = ` (${txMatch[1]} תנועות)`;
+      break;
+    }
+  }
+
+  const allSyncedLine = lines.find((l) => l.includes('All providers synced.'));
+  if (exitCode === 0 && allSyncedLine) {
+    return {
+      status: 'success',
+      summary: `All providers synced.${txCountText}`,
+      details: [
+        `קוד יציאה: 0`,
+        `תוצאה: All providers synced.${txCountText}`,
+        `תאריך בדיקה: ${new Date().toLocaleString('he-IL')}`
+      ],
+      alert: null
+    };
+  }
+
+  const doneWithErrorsLine = lines.find((l) => l.startsWith('Done with errors:'));
+  if (doneWithErrorsLine) {
+    return {
+      status: 'error',
+      summary: doneWithErrorsLine,
+      details: [
+        `קוד יציאה: ${exitCode}`,
+        `שגיאה: ${doneWithErrorsLine}`,
+        `תאריך בדיקה: ${new Date().toLocaleString('he-IL')}`
+      ],
+      alert: {
+        severity: 'critical',
+        title: 'שגיאה בסנכרון חלק מהגופים ב-Finance Aggregator',
+        message: doneWithErrorsLine,
+        actionHint: `בדוק את החיבור בדשבורד: ${FINANCE_DASHBOARD_URL}`
+      }
+    };
+  }
+
+  const syncFailedLine = lines.find((l) => l.startsWith('Sync failed:'));
+  if (syncFailedLine) {
+    return {
+      status: 'error',
+      summary: syncFailedLine,
+      details: [
+        `קוד יציאה: ${exitCode}`,
+        `שגיאה: ${syncFailedLine}`,
+        `תאריך בדיקה: ${new Date().toLocaleString('he-IL')}`
+      ],
+      alert: {
+        severity: 'critical',
+        title: 'כשל בסנכרון Finance Aggregator',
+        message: syncFailedLine,
+        actionHint: `בדוק את החיבור בדשבורד: ${FINANCE_DASHBOARD_URL}`
+      }
+    };
+  }
+
+  return {
+    status: exitCode === 0 ? 'success' : 'error',
+    summary: exitCode === 0 ? `הסנכרון הסתיים (קוד 0)${txCountText}` : `הסנכרון נכשל (קוד יציאה ${exitCode})`,
+    details: [
+      `קוד יציאה: ${exitCode}`,
+      `תאריך בדיקה: ${new Date().toLocaleString('he-IL')}`
+    ],
+    alert:
+      exitCode === 0
+        ? null
+        : {
+            severity: 'critical',
+            title: 'כשל בהרצת סנכרון Finance Aggregator',
+            message: `הפקודה npm run sync -- all הסתיימה עם קוד יציאה ${exitCode}.`,
+            actionHint: 'בדוק את לוג הריצה המקומי במחשב הנייח.'
+          }
+  };
+}
+
+/**
+ * Runs or checks the Finance Aggregator sync according to preconditions.
+ * Note: Pass `--run-finance-sync` to actually execute `npm run sync -- all` when profile is present.
+ */
+function checkOrRunFinanceSync(shouldExecuteSync = false) {
+  const startMs = Date.now();
+  const profileExists = hasAwsProfile(REQUIRED_AWS_PROFILE);
+
+  if (!profileExists) {
+    return {
+      ranAt: new Date().toISOString(),
+      durationMs: Date.now() - startMs,
+      status: 'warning',
+      summary: 'צריך להגדיר פרופיל AWS finance-scraper (הסנכרון לא הורץ)',
+      details: [
+        `תנאי מוקדם: בדיקת פרופיל AWS בשם ${REQUIRED_AWS_PROFILE}`,
+        `סטטוס: הפרופיל חסר במחשב זה – הסנכרון לא הופעל בהתאם להנחיות`
+      ],
+      alert: {
+        id: 'alert-aws-finance-scraper',
+        automationId: 'finance-aggregator-sync',
+        category: 'finance',
+        severity: 'warning',
+        title: 'צריך להגדיר פרופיל AWS finance-scraper',
+        message: 'פרופיל ה-AWS בשם finance-scraper אינו מוגדר עדיין במחשב החדש, ולכן סנכרון הכספים לא הופעל.',
+        actionHint: 'הגדר פרופיל AWS בשם finance-scraper (אזור il-central-1)',
+        createdAt: new Date().toISOString(),
+        resolved: false
+      }
+    };
+  }
+
+  if (!shouldExecuteSync) {
+    return {
+      ranAt: new Date().toISOString(),
+      durationMs: Date.now() - startMs,
+      status: 'success',
+      summary: 'פרופיל AWS finance-scraper מוגדר ומוכן לסנכרון (07:00 ו-19:00)',
+      details: [
+        `✓ פרופיל AWS ${REQUIRED_AWS_PROFILE} קיים`,
+        `✓ מוכן להרצת npm run sync -- all מתוך ${FINANCE_DIR}`
+      ],
+      alert: null
+    };
+  }
+
+  // Execute `npm run sync -- all` inside C:\Users\fradk\PROGRAMS\finance-aggregator
+  const proc = spawnSync('npm', ['run', 'sync', '--', 'all'], {
+    cwd: FINANCE_DIR,
+    shell: true,
+    encoding: 'utf8',
+    timeout: 300000
+  });
+
+  const parsed = parseSafeFinanceOutput(proc.status ?? 1, proc.stdout, proc.stderr);
+  return {
+    ranAt: new Date().toISOString(),
+    durationMs: Date.now() - startMs,
+    status: parsed.status,
+    summary: parsed.summary,
+    details: parsed.details,
+    alert: parsed.alert
+      ? {
+          id: `alert-finance-sync-${Date.now()}`,
+          automationId: 'finance-aggregator-sync',
+          category: 'finance',
+          ...parsed.alert,
+          createdAt: new Date().toISOString(),
+          resolved: false
+        }
+      : null
+  };
+}
+
+function runRealChecks() {
+  const args = process.argv.slice(2);
+  const executeFinanceSync = args.includes('--run-finance-sync');
+  const existing = PapooshReporter.loadTelemetry();
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  // Keep only real runs (filter out any old hardcoded mock runs like run-102..run-107 or run-sim-*)
+  const realPastRuns = (existing.recentRuns || []).filter(
+    (r) => !/^run-10[0-9]$/.test(r.id) && !String(r.id).startsWith('run-sim-')
+  );
+
+  // Check Finance Aggregator precondition / sync
+  const financeResult = checkOrRunFinanceSync(executeFinanceSync);
+
+  const financeRunEntry = {
+    id: `run-finance-${Date.now()}`,
+    automationId: 'finance-aggregator-sync',
+    name: 'סנכרון כספים (Finance Aggregator)',
+    category: 'finance',
+    status: financeResult.status,
+    timestamp: financeResult.ranAt,
+    durationMs: financeResult.durationMs,
+    summary: financeResult.summary,
+    details: financeResult.details
+  };
+
+  // Monthly reminder check (around the 12th of the month for ONE ZERO & Isracard manual import)
+  const dayOfMonth = now.getDate();
+  const isAround12th = dayOfMonth >= 11 && dayOfMonth <= 14;
+
+  // Build real alerts list
+  const alerts = [];
+  if (financeResult.alert) {
+    alerts.push(financeResult.alert);
+  }
+  if (isAround12th) {
+    alerts.push({
+      id: `alert-monthly-import-${now.getFullYear()}-${now.getMonth() + 1}`,
+      automationId: 'finance-monthly-import-reminder',
+      category: 'finance',
+      severity: 'info',
+      title: 'תזכורת חודשית: ייבוא ידני של ONE ZERO וישראכרט',
+      message:
+        'לקראת תכנון התקציב ב-15 לחודש: יש להוריד קובץ xls מאתר ONE ZERO וקובץ JSON מישראכרט (באמצעות ה-Bookmarklet בדפדפן) ולהעלות אותם במסך הייבוא בדשבורד.',
+      actionHint: `מסך הייבוא בדשבורד: ${FINANCE_DASHBOARD_URL}`,
+      createdAt: nowIso,
+      resolved: false
+    });
+  }
+
+  // Find latest real Gmail run if one occurred
+  const lastGmailRun = realPastRuns.find((r) => r.automationId === 'gmail-smart-invoices');
+
+  const recentRuns = [financeRunEntry, ...realPastRuns].slice(0, 50);
 
   const automations = [
     {
       id: 'finance-aggregator-sync',
-      name: 'סנכרון כספים ובנקים (Finance Aggregator)',
+      name: 'סנכרון כספים (Finance Aggregator)',
       category: 'finance',
-      schedule: 'כל בוקר ב-07:00 ו-19:00',
+      schedule: 'פעמיים ביום (07:00 ו-19:00)',
       cron: '0 7,19 * * *',
-      lastStatus: 'warning',
-      lastRunAt: isoAgo(8),
-      nextRunAt: isoFuture(420),
-      lastDurationMs: 3420,
-      totalRuns: 14,
-      successRate: 93,
-      repoPath: 'C:\\Users\\fradk\\PROGRAMS\\finance-aggregator',
-      description: 'משיכת תנועות אוטומטית מלאומי, דיסקונט, וואן זירו, מקס וישראכרט למסד נתונים מקומי וסיכום תזרים.',
-      lastSummary: 'מאגר הקוד סונכרן למחשב החדש. ממתין להגדרת קובץ .env מקומי עם פרטי ההתחברות לבנקים להרצה מלאה.'
+      lastStatus: financeResult.status,
+      lastRunAt: financeResult.ranAt,
+      nextRunAt: null,
+      lastDurationMs: financeResult.durationMs,
+      totalRuns: recentRuns.filter((r) => r.automationId === 'finance-aggregator-sync').length,
+      repoPath: FINANCE_DIR,
+      description:
+        'מריץ npm run sync -- all מתוך תיקיית הפרויקט (מסנכרן ל-DynamoDB ב-il-central-1 רק גופים שמוגדרים ב-.env: מקס, כאל, לאומי ודיסקונט). ONE ZERO וישראכרט מיובאים ידנית בלבד.',
+      lastSummary: financeResult.summary
+    },
+    {
+      id: 'finance-monthly-import-reminder',
+      name: 'תזכורת חודשית: ייבוא ONE ZERO וישראכרט',
+      category: 'finance',
+      schedule: 'פעם בחודש ב-12 לחודש (לקראת ה-15)',
+      cron: '0 9 12 * *',
+      lastStatus: isAround12th ? 'warning' : 'success',
+      lastRunAt: nowIso,
+      nextRunAt: null,
+      lastDurationMs: 10,
+      totalRuns: isAround12th ? 1 : 0,
+      repoPath: FINANCE_DASHBOARD_URL,
+      description:
+        'תזכורת חודשית סביב ה-12 לחודש לייבא ידנית קובץ xls מ-ONE ZERO וקובץ JSON מישראכרט (דרך ה-Bookmarklet) למסך הייבוא בדשבורד. ללא הרצה אוטומטית.',
+      lastSummary: isAround12th
+        ? 'תזכורת פעילה לחודש זה: מומלץ לייבא ONE ZERO וישראכרט לפני ה-15 לחודש.'
+        : 'ממתין ל-12 לחודש.'
     },
     {
       id: 'gmail-smart-invoices',
-      name: 'סורק מיילים וחשבוניות חכם (Gmail AI)',
+      name: 'סידור וסיכום מיילים יומי - פפוש (Gmail)',
       category: 'email',
-      schedule: 'כל שעה עגולה',
-      cron: '0 * * * *',
-      lastStatus: 'success',
-      lastRunAt: isoAgo(12),
-      nextRunAt: isoFuture(48),
-      lastDurationMs: 2150,
-      totalRuns: 48,
-      successRate: 100,
-      repoPath: 'fradkintal@gmail.com (OAuth2 Connected)',
-      description: 'סריקת תיבת Gmail לזיהוי חשבוניות PDF, קבלות, הודעות בנקים ומיילים דחופים מהעסקים באילת.',
-      lastSummary: 'חיבור OAuth2 פעיל (fradkintal@gmail.com). נסרקו מיילים אחרונים וזוהו חשבוניות שוטפות ועדכוני מערכת.'
-    },
-    {
-      id: 'elsol-daily-occupancy',
-      name: 'דוח תפוסת חדרים יומי - אל סול (בית אורן ולב אילת)',
-      category: 'business',
-      schedule: 'כל בוקר ב-08:30',
-      cron: '30 8 * * *',
-      lastStatus: 'success',
-      lastRunAt: isoAgo(195),
-      nextRunAt: isoFuture(1245),
-      lastDurationMs: 4890,
-      totalRuns: 112,
-      successRate: 99,
-      repoPath: 'C:\\Users\\fradk\\PROGRAMS\\el-sol-sys',
-      description: 'בדיקת תפוסת חדרים ומיטות לפי קומות וחברות (הצוות, יוניטל, פרי ארצנו, פרימה מיוזיק) ושליחה ב-WhatsApp (Green API).',
-      lastSummary: 'הקוד מסונכרן במחשב החדש (el-sol-sys). דוח תפוסה אחרון נשלח בהצלחה מול טבלאות Guests ו-Rooms.'
-    },
-    {
-      id: 'the-team-attendance-101',
-      name: 'בקרת עובדים, טופס 101 ופינוי מיטות - הצוות',
-      category: 'business',
-      schedule: 'כל 4 שעות (08:00 - 20:00)',
-      cron: '0 8,12,16,20 * * *',
-      lastStatus: 'success',
-      lastRunAt: isoAgo(45),
-      nextRunAt: isoFuture(195),
-      lastDurationMs: 2780,
-      totalRuns: 86,
-      successRate: 98,
-      repoPath: 'C:\\Users\\fradk\\PROGRAMS\\the-team-sys',
-      description: 'מעקב אחר טפסי 101 חדשים, משימות פינוי חדרים באילת, אימותי SMS והכנה לסגירת חודש.',
-      lastSummary: 'מאגר the-team-sys פעיל ומסונכרן. כל שירותי האימות וטפסי 101 זמינים.'
-    },
-    {
-      id: 'gcalendar-daily-digest',
-      name: 'סנכרון יומן ותזכורות תשלומים (Google Calendar)',
-      category: 'calendar',
-      schedule: 'כל בוקר ב-07:30',
-      cron: '30 7 * * *',
-      lastStatus: 'success',
-      lastRunAt: isoAgo(18),
-      nextRunAt: isoFuture(1180),
-      lastDurationMs: 1340,
-      totalRuns: 30,
-      successRate: 100,
-      repoPath: 'fradkintal@gmail.com (Google Calendar)',
-      description: 'בדיקת אירועים קרובים ביומן, תזכורות סגירת חודש, תשלומים לספקים ופגישות.',
-      lastSummary: 'תוסף Google Calendar חובר בהצלחה לחשבון fradkintal@gmail.com ומסנכרן אירועים בזמן אמת.'
+      schedule: 'כל בוקר ב-08:00',
+      cron: '0 8 * * *',
+      lastStatus: lastGmailRun ? lastGmailRun.status : 'info',
+      lastRunAt: lastGmailRun ? lastGmailRun.timestamp : null,
+      nextRunAt: null,
+      lastDurationMs: lastGmailRun ? lastGmailRun.durationMs : 0,
+      totalRuns: recentRuns.filter((r) => r.automationId === 'gmail-smart-invoices').length,
+      repoPath: 'fradkintal@gmail.com',
+      description:
+        'תיוג אוטומטי וארכוב התראות GitHub (Label_14), האוניברסיטה הפתוחה (Label_15), קבלות (Label_6) ומיילים פיננסיים (Label_16), הסרה מדיוורים פרסומיים ותקציר בוקר יומי (ללא הצלבת מידע פיננסי).',
+      lastSummary: lastGmailRun ? lastGmailRun.summary : 'טרם הורץ היום'
     },
     {
       id: 'github-programs-sync',
-      name: 'סנכרון מאגרי GitHub לתיקיית PROGRAMS',
+      name: 'משיכת עדכונים לילית מ-GitHub (git pull בלבד)',
       category: 'system',
-      schedule: 'כל לילה ב-02:00 + בהפעלה',
+      schedule: 'כל לילה ב-02:00',
       cron: '0 2 * * *',
-      lastStatus: 'success',
-      lastRunAt: isoAgo(3),
-      nextRunAt: isoFuture(840),
-      lastDurationMs: 6120,
-      totalRuns: 9,
-      successRate: 100,
+      lastStatus: 'info',
+      lastRunAt: null,
+      nextRunAt: null,
+      lastDurationMs: 0,
+      totalRuns: recentRuns.filter((r) => r.automationId === 'github-programs-sync').length,
       repoPath: 'C:\\Users\\fradk\\PROGRAMS',
-      description: 'בדיקת תקינות ומשיכת עדכונים (git pull) לכל המאגרים של טל בחשבון GitHub (fradkintal).',
-      lastSummary: 'סונכרנו בהצלחה 7 מאגרים בתיקיית C:\\Users\\fradk\\PROGRAMS תחת המשתמש fradkintal.'
-    },
-    {
-      id: 'aws-credentials-health',
-      name: 'ניטור חיבורי ענן AWS (il-central-1 / eu-west-1)',
-      category: 'system',
-      schedule: 'כל 6 שעות',
-      cron: '0 */6 * * *',
-      lastStatus: 'error',
-      lastRunAt: isoAgo(5),
-      nextRunAt: isoFuture(355),
-      lastDurationMs: 890,
-      totalRuns: 4,
-      successRate: 75,
-      repoPath: 'AWS CLI v2 (Scoop)',
-      description: 'בדיקת תוקף מפתחות AWS CLI לגישה ישירה מהמחשב הנייח לטבלאות DynamoDB ופונקציות Lambda.',
-      lastSummary: 'AWS CLI מותקן במחשב החדש אך טרם הוגדר קובץ ~/.aws/credentials (נדרש aws configure חד-פעמי).'
-    }
-  ];
-
-  const recentRuns = [
-    {
-      id: 'run-107',
-      automationId: 'github-programs-sync',
-      name: 'סנכרון מאגרי GitHub לתיקיית PROGRAMS',
-      category: 'system',
-      status: 'success',
-      timestamp: isoAgo(3),
-      durationMs: 6120,
-      summary: 'כל המאגרים (the-team-sys, el-sol-sys, finance-aggregator, tlator-web, papoosh-automations) מעודכנים מול GitHub.',
-      details: [
-        '✓ GitHub CLI מחובר למשתמש fradkintal (הרשאות: repo, workflow, gist)',
-        '✓ תיקיית C:\\Users\\fradk\\PROGRAMS מכילה 7 פרויקטים פעילים',
-        '✓ מאגר חדש papoosh-automations הוגדר עם ניהול גרסאות אוטומטי'
-      ]
-    },
-    {
-      id: 'run-106',
-      automationId: 'aws-credentials-health',
-      name: 'ניטור חיבורי ענן AWS (il-central-1 / eu-west-1)',
-      category: 'system',
-      status: 'error',
-      timestamp: isoAgo(5),
-      durationMs: 890,
-      summary: 'חסרה הגדרת מפתחות AWS במחשב החדש (NoCredentials). יש להריץ aws configure.',
-      details: [
-        '✗ פקודת aws sts get-caller-identity החזירה NoCredentials',
-        'ℹ המחשב חדש – יש להעתיק את קובץ .aws/credentials או להזין Access Key',
-        '✓ כלי ה-AWS CLI עצמו מותקן ומוכן לעבודה ב-Scoop'
-      ]
-    },
-    {
-      id: 'run-105',
-      automationId: 'finance-aggregator-sync',
-      name: 'סנכרון כספים ובנקים (Finance Aggregator)',
-      category: 'finance',
-      status: 'warning',
-      timestamp: isoAgo(8),
-      durationMs: 3420,
-      summary: 'הפרויקט קיים ב-PROGRAMS\\finance-aggregator. ממתין ליצירת קובץ .env מתוך .env.example.',
-      details: [
-        '✓ זוהו מודולים: dashboard, scraper, infra, docs',
-        '⚠ קובץ .env.example קיים (ONE ZERO, לאומי, דיסקונט, MAX, ישראכרט)',
-        'ℹ ליצירת סנכרון יומי חי – יש למלא את הסיסמאות בקובץ .env מקומי במחשב הנייח'
-      ]
-    },
-    {
-      id: 'run-104',
-      automationId: 'gmail-smart-invoices',
-      name: 'סורק מיילים וחשבוניות חכם (Gmail AI)',
-      category: 'email',
-      status: 'success',
-      timestamp: isoAgo(12),
-      durationMs: 2150,
-      summary: 'חיבור Gmail פעיל (fradkintal@gmail.com). מוכן לשליפת חשבוניות PDF וסינון יומי.',
-      details: [
-        '✓ OAuth2 Token תקין עם הרשאות קריאה, שליחה ותיוג',
-        '✓ סריקת תיבה ראשונית הושלמה בהצלחה',
-        '✓ מוכן להצלבת חשבוניות מול תנועות Finance Aggregator'
-      ]
-    },
-    {
-      id: 'run-103',
-      automationId: 'gcalendar-daily-digest',
-      name: 'סנכרון יומן ותזכורות תשלומים (Google Calendar)',
-      category: 'calendar',
-      status: 'success',
-      timestamp: isoAgo(18),
-      durationMs: 1340,
-      summary: 'יומן Google מחובר ומסונכרן. בדיקת אירועים ותזכורות קרובות הושלמה.',
-      details: [
-        '✓ חיבור OAuth2 פעיל ליומן fradkintal@gmail.com',
-        '✓ סנכרון תזכורות סגירת חודש ותשלומים פעיל'
-      ]
-    },
-    {
-      id: 'run-102',
-      automationId: 'the-team-attendance-101',
-      name: 'בקרת עובדים, טופס 101 ופינוי מיטות - הצוות',
-      category: 'business',
-      status: 'success',
-      timestamp: isoAgo(45),
-      durationMs: 2780,
-      summary: 'בדיקת מערכת הצוות (the-team-sys) הושלמה ללא חריגים.',
-      details: [
-        '✓ מאגר קוד מקומי מעודכן בענף master',
-        '✓ מודולי טופס 101, משימות פינוי וסגירת חודש תקינים'
-      ]
-    }
-  ];
-
-  const alerts = [
-    {
-      id: 'alert-aws-creds',
-      automationId: 'aws-credentials-health',
-      category: 'system',
-      severity: 'critical',
-      title: 'חיבור AWS CLI טרם הוגדר במחשב החדש',
-      message: 'כדי שהמחשב הנייח יוכל לתשאל ישירות את טבלאות DynamoDB של אל סול והצוות ולגבות את Finance Aggregator לענן, יש להגדיר מפתחות AWS.',
-      actionHint: 'הרץ בטרמינל: aws configure (אזור מומלץ: il-central-1 או eu-west-1)',
-      createdAt: isoAgo(5),
-      resolved: false
-    },
-    {
-      id: 'alert-finance-env',
-      automationId: 'finance-aggregator-sync',
-      category: 'finance',
-      severity: 'warning',
-      title: 'השלמת קובץ .env ב-Finance Aggregator',
-      message: 'מאגר הכספים הורד למחשב החדש (C:\\Users\\fradk\\PROGRAMS\\finance-aggregator), אך קובץ הסיסמאות המקומי (.env) עדיין לא הוגדר כדי למשוך תנועות מלאומי, דיסקונט, וואן זירו, מקס וישראכרט.',
-      actionHint: 'העתק את קובץ .env מהמחשב הקודם או מלא את השדות מתוך .env.example',
-      createdAt: isoAgo(8),
-      resolved: false
-    },
-    {
-      id: 'alert-gmail-calendar-ready',
-      automationId: 'gmail-smart-invoices',
-      category: 'email',
-      severity: 'info',
-      title: 'Gmail ו-Google Calendar חוברו בהצלחה לפפוש!',
-      message: 'חשבון fradkintal@gmail.com מחובר עם הרשאות מלאות לקריאת מיילים, שליפת חשבוניות וניהול יומן.',
-      actionHint: 'מוכן להפעלת אוטומציית איסוף חשבוניות וסיכום בוקר יומי',
-      createdAt: isoAgo(12),
-      resolved: false
+      description:
+        'מבצע git pull בלבד בלילה למאגרים בתיקיית PROGRAMS. ללא git push אוטומטי ב-finance-aggregator (מכיוון ש-push ל-main מפעיל פריסה לענן).',
+      lastSummary: 'מוגדר למשיכת עדכונים לילית (git pull בלבד).'
     }
   ];
 
@@ -281,94 +342,66 @@ function buildInitialTelemetry() {
     {
       id: 'tool-finance',
       name: 'Finance Aggregator',
-      subtitle: 'אגרגטור בנקים ואשראי אישי',
+      subtitle: 'אגרגטור כספים אישי • DynamoDB (il-central-1)',
       category: 'finance',
-      color: 'from-emerald-500 to-teal-600',
       badge: 'כספים',
-      localPath: 'C:\\Users\\fradk\\PROGRAMS\\finance-aggregator',
-      repoUrl: 'https://github.com/fradkintal/finance-aggregator',
-      tech: 'Node.js • israeli-bank-scrapers • SQLite • AWS il-central-1',
-      status: 'needs-config',
-      statusLabel: 'ממתין ל-.env במחשב החדש'
+      localPath: FINANCE_DIR,
+      repoUrl: FINANCE_DASHBOARD_URL,
+      tech: 'Node.js • DynamoDB (il-central-1) • CloudFront Dashboard',
+      status: financeResult.status === 'success' ? 'active' : 'needs-config',
+      statusLabel:
+        financeResult.status === 'success'
+          ? 'מוכן לסנכרון'
+          : 'צריך להגדיר פרופיל AWS finance-scraper'
+    },
+    {
+      id: 'tool-gmail-ai',
+      name: 'סידור מיילים יומי (Gmail)',
+      subtitle: 'תיוג אוטומטי (GitHub, אונ׳ פתוחה, קבלות, פיננסים) ותקציר יומי',
+      category: 'email',
+      badge: 'Gmail',
+      localPath: 'fradkintal@gmail.com',
+      repoUrl: 'https://mail.google.com',
+      tech: 'Gmail OAuth2 • Daily 08:00 Schedule',
+      status: 'active',
+      statusLabel: 'פעיל (08:00)'
     },
     {
       id: 'tool-the-team',
       name: 'הצוות (The Team Sys)',
       subtitle: 'ניהול עובדים, מגורים באילת, טופס 101 וסגירת חודש',
       category: 'business',
-      color: 'from-purple-500 to-indigo-600',
       badge: 'הצוות',
       localPath: 'C:\\Users\\fradk\\PROGRAMS\\the-team-sys',
       repoUrl: 'https://github.com/fradkintal/the-team-sys',
-      tech: 'React • AWS • PDF Analysis • SMS Auth',
+      tech: 'React • AWS • SMS Auth',
       status: 'active',
-      statusLabel: 'פעיל ומסונכרן'
+      statusLabel: 'קיים ב-PROGRAMS'
     },
     {
       id: 'tool-el-sol',
       name: 'אל סול ניהול מבנים (El-Sol Sys)',
       subtitle: 'מתחם בית אורן ולב אילת • דוחות תפוסה בוואטסאפ',
       category: 'business',
-      color: 'from-fuchsia-500 to-pink-600',
       badge: 'אל סול',
       localPath: 'C:\\Users\\fradk\\PROGRAMS\\el-sol-sys',
       repoUrl: 'https://github.com/fradkintal/el-sol-sys',
-      tech: 'Python Lambda • DynamoDB • Green API WhatsApp • Playwright',
+      tech: 'Python Lambda • DynamoDB • Green API WhatsApp',
       status: 'active',
-      statusLabel: 'פעיל ומסונכרן'
-    },
-    {
-      id: 'tool-elgarasi',
-      name: 'אלגרסי לוגיסטיקה (Elgarasi)',
-      subtitle: 'ניהול לוגיסטיקה, דירות, עובדים, הרשאות ולוגים',
-      category: 'business',
-      color: 'from-amber-500 to-orange-600',
-      badge: 'אלגרסי',
-      localPath: 'C:\\Users\\fradk\\PROGRAMS\\elgarasi-logistics',
-      repoUrl: 'https://github.com/fradkintal/elgarasi-logistics',
-      tech: 'React • AWS Lambda • Logs & Permissions',
-      status: 'active',
-      statusLabel: 'מחובר ב-GitHub'
-    },
-    {
-      id: 'tool-gmail-ai',
-      name: 'Papoosh Mail & Calendar AI',
-      subtitle: 'סריקת חשבוניות, סינון מיילים ותזכורות יומן',
-      category: 'email',
-      color: 'from-cyan-500 to-blue-600',
-      badge: 'גוגל AI',
-      localPath: 'fradkintal@gmail.com',
-      repoUrl: 'https://mail.google.com',
-      tech: 'Gmail OAuth2 • Google Calendar • Gemini 4 Argon',
-      status: 'active',
-      statusLabel: 'מחובר ופעיל'
-    },
-    {
-      id: 'tool-tlator',
-      name: 'Tlator Web',
-      subtitle: 'אפליקציית React + Three.js על גבי Firebase',
-      category: 'system',
-      color: 'from-blue-500 to-violet-600',
-      badge: 'Firebase',
-      localPath: 'C:\\Users\\fradk\\PROGRAMS\\tlator-web',
-      repoUrl: 'https://github.com/fradkintal/tlator-web',
-      tech: 'React 18 • Vite • Chakra UI • Firebase (tlator-759c6)',
-      status: 'active',
-      statusLabel: 'פעיל ומסונכרן'
+      statusLabel: 'קיים ב-PROGRAMS'
     }
   ];
 
-  const repos = inspectLocalRepos();
-
   return PapooshReporter.saveTelemetry({
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso,
     automations,
     recentRuns,
     alerts,
-    tools,
-    repos
+    tools
   });
 }
 
-const result = buildInitialTelemetry();
-console.log(`[PAPOOSH Runner] Initialized ${result.automations.length} automations and ${result.tools.length} tools.`);
+const result = runRealChecks();
+console.log(
+  `[PAPOOSH Runner] Completed real state check. Real runs recorded: ${result.recentRuns.length}, Open alerts: ${result.alerts.length}`
+);
