@@ -1,10 +1,18 @@
 {
-  "version": "1.1.1",
-  "buildNumber": 5,
-  "releasedAt": "2026-11-11T09:41:59.100Z",
+  "version": "1.1.2",
+  "buildNumber": 6,
+  "releasedAt": "2026-11-11T09:48:05.584Z",
   "environment": "production",
   "codename": "PAPOOSH Neon Core",
   "changelog": [
+    {
+      "version": "1.1.2",
+      "date": "2026-11-11",
+      "title": "תמיכה בקבלת קבצים בגשר פפוש וניהול משימות מאוחד עם Claude כעוזר עומק אוטומטי",
+      "highlights": [
+        "תמיכה בקבלת קבצים בגשר פפוש וניהול משימות מאוחד עם Claude כעוזר עומק אוטומטי"
+      ]
+    },
     {
       "version": "1.1.1",
       "date": "2026-11-11",

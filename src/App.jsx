@@ -26,7 +26,9 @@ import {
   Send,
   Link2,
   Bot,
-  FileText
+  FileText,
+  Paperclip,
+  UploadCloud
 } from 'lucide-react';
 import { APP_VERSION } from './version.js';
 
@@ -111,7 +113,7 @@ export default function App() {
   const [copiedSnippet, setCopiedSnippet] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [instructionText, setInstructionText] = useState('');
-  const [instructionTarget, setInstructionTarget] = useState('agent'); // 'agent' | 'claude'
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [isSendingInstruction, setIsSendingInstruction] = useState(false);
 
   const showToast = useCallback((msg) => {
@@ -251,8 +253,39 @@ export default function App() {
     [dismissedAlertIds, telemetry, showToast]
   );
 
+  const handleSelectBridgeFiles = async (e) => {
+    const fileList = Array.from(e.target.files || []);
+    if (fileList.length === 0) return;
+
+    const readPromises = fileList.map(
+      (file) =>
+        new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              name: file.name,
+              size: file.size,
+              type: file.type || 'application/octet-stream',
+              contentBase64: String(reader.result || '')
+            });
+          };
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        })
+    );
+
+    const loaded = (await Promise.all(readPromises)).filter(Boolean);
+    setSelectedFiles((prev) => [...prev, ...loaded]);
+    e.target.value = '';
+  };
+
+  const handleRemoveSelectedFile = (idx) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleSendBridgeAction = async (type, customText = '') => {
     setIsSendingInstruction(true);
+    const attachmentsToSend = type === 'task' ? selectedFiles : [];
     try {
       const res = await fetch('http://localhost:4041/api/action', {
         method: 'POST',
@@ -260,14 +293,20 @@ export default function App() {
         body: JSON.stringify({
           type,
           text: customText,
-          prompt: customText
+          prompt: customText,
+          attachments: attachmentsToSend
         })
       });
       if (res.ok) {
         const data = await res.json();
         if (data.bridge) setBridge(data.bridge);
-        showToast('הפעולה נשלחה ובוצעה במחשב הנייח!');
+        showToast(
+          attachmentsToSend.length > 0
+            ? `המשימה ו-${attachmentsToSend.length} קבצים נשמרו במחשב הנייח!`
+            : 'המשימה התקבלה ובוצעה במחשב הנייח!'
+        );
         setInstructionText('');
+        if (type === 'task') setSelectedFiles([]);
         setIsSendingInstruction(false);
         return;
       }
@@ -275,20 +314,35 @@ export default function App() {
       // Fallback if away from home Wi-Fi
     }
 
+    const fallbackAttachments = attachmentsToSend.map((f) => ({
+      id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      uploadedAt: new Date().toISOString()
+    }));
+
     const newMsg = {
       id: `msg-${Date.now()}`,
       sender: 'tal',
-      target: instructionTarget,
+      target: 'agent',
+      attachments: fallbackAttachments,
       timestamp: new Date().toISOString(),
-      text: customText || type
+      text:
+        customText ||
+        (fallbackAttachments.length > 0
+          ? `צורפו קבצים לטיפול: ${fallbackAttachments.map((f) => f.name).join(', ')}`
+          : type)
     };
     setBridge((prev) => ({
       ...(prev || {}),
+      files: [...fallbackAttachments, ...(prev?.files || [])],
       messages: [newMsg, ...(prev?.messages || [])]
     }));
     setInstructionText('');
+    if (type === 'task') setSelectedFiles([]);
     setIsSendingInstruction(false);
-    showToast('ההוראה נרשמה בגשר פפוש!');
+    showToast('המשימה והקבצים נרשמו בגשר פפוש!');
   };
 
   const filteredDigests = useMemo(() => {
@@ -805,47 +859,114 @@ export default function App() {
         </main>
       )}
 
-      {/* TAB 2: LIVE BRIDGE (חיבור חי בין המחשב, השיחה, Claude והאפליקציה) */}
+      {/* TAB 2: LIVE BRIDGE (חיבור חי בין המחשב, השיחה, קבלת קבצים ו-Claude כעוזר עומק) */}
       {activeTab === 'bridge' && (
         <main>
           <div className="glass-card card-accent-info">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <MessageSquare size={22} color="#00f0ff" />
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 900 }}>
-                  גשר פפוש חי: המחשב הנייח ⬅ השיחה ⬅ Claude
-                </h2>
-                <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
-                  שלח הוראות להוספת אוטומציות אישיות, חיפוש קישורים אונליין, שאיבת ישראכרט או הפעלת Claude על המחשב.
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <MessageSquare size={22} color="#00f0ff" />
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 900 }}>
+                    גשר פפוש מאוחד: משימות, קבצים וקישורים
+                  </h2>
+                  <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
+                    כל המשימות והקבצים מגיעים אליי במרוכז — ואני מפעיל אוטומטית את Claude במחשב כשנדרש ניתוח עומק.
+                  </div>
                 </div>
               </div>
+
+              <span
+                className="pill"
+                style={{
+                  background: 'rgba(168, 85, 247, 0.18)',
+                  color: '#e879f9',
+                  border: '1px solid rgba(232, 121, 249, 0.45)',
+                  fontSize: '0.73rem'
+                }}
+              >
+                <Bot size={13} />
+                <span>Claude מחובר כעוזר עומק אוטומטי ✓</span>
+              </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-              <button
-                className={`filter-chip ${instructionTarget === 'agent' ? 'active' : ''}`}
-                onClick={() => setInstructionTarget('agent')}
+            {/* Selected Files Preview Row */}
+            {selectedFiles.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                  marginBottom: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '12px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)'
+                }}
               >
-                <Sparkles size={14} />
-                <span>שלח לסוכן השיחה (Antigravity)</span>
-              </button>
-              <button
-                className={`filter-chip ${instructionTarget === 'claude' ? 'active' : ''}`}
-                onClick={() => setInstructionTarget('claude')}
-              >
-                <Bot size={14} />
-                <span>שלח ל-Claude במחשב הנייח</span>
-              </button>
-            </div>
+                {selectedFiles.map((file, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: 'rgba(4, 7, 17, 0.9)',
+                      color: '#a7f3d0',
+                      padding: '4px 10px',
+                      borderRadius: '999px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    <Paperclip size={13} />
+                    <span>
+                      {file.name} ({Math.max(1, Math.round((file.size || 0) / 1024))}KB)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSelectedFile(idx)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#fb7185',
+                        cursor: 'pointer',
+                        fontWeight: 900,
+                        padding: '0 2px'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            {/* Unified Task Input + File Attachment Picker */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <label
+                className="btn-secondary"
+                style={{ cursor: 'pointer', padding: '11px 13px', flexShrink: 0 }}
+                title="צרף קבצים, תמונות, קובץ ישראכרט/ONE ZERO או מסמכים"
+              >
+                <Paperclip size={16} color="#00f0ff" />
+                <span>צרף קובץ</span>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleSelectBridgeFiles}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
               <input
                 type="text"
                 value={instructionText}
                 onChange={(e) => setInstructionText(e.target.value)}
-                placeholder="כתוב הוראה, בקשה לאוטומציה חדשה או חיפוש קישור..."
+                placeholder="כתוב משימה, בקש אוטומציה חדשה, חיפוש קישור או הסבר לקובץ המצורף..."
                 style={{
                   flex: 1,
+                  minWidth: '180px',
                   background: 'rgba(4, 7, 17, 0.9)',
                   border: '1px solid rgba(0, 240, 255, 0.35)',
                   borderRadius: '14px',
@@ -855,26 +976,18 @@ export default function App() {
                   fontFamily: 'inherit'
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && instructionText.trim()) {
-                    handleSendBridgeAction(
-                      instructionTarget === 'claude' ? 'ask-claude' : 'chat',
-                      instructionText.trim()
-                    );
+                  if (e.key === 'Enter' && (instructionText.trim() || selectedFiles.length > 0)) {
+                    handleSendBridgeAction('task', instructionText.trim());
                   }
                 }}
               />
               <button
                 className="btn-neon"
-                disabled={isSendingInstruction || !instructionText.trim()}
-                onClick={() =>
-                  handleSendBridgeAction(
-                    instructionTarget === 'claude' ? 'ask-claude' : 'chat',
-                    instructionText.trim()
-                  )
-                }
+                disabled={isSendingInstruction || (!instructionText.trim() && selectedFiles.length === 0)}
+                onClick={() => handleSendBridgeAction('task', instructionText.trim())}
               >
                 <Send size={16} />
-                <span>שלח</span>
+                <span>שלח לפפוש</span>
               </button>
             </div>
 
@@ -888,12 +1001,38 @@ export default function App() {
                 <RefreshCw size={14} color="#00f0ff" />
                 <span>שאב קובץ ישראכרט מ-Downloads</span>
               </button>
-              <button className="btn-secondary" onClick={() => handleSendBridgeAction('launch-claude-desktop')}>
-                <Bot size={14} color="#e879f9" />
-                <span>הפעל Claude Desktop במחשב</span>
-              </button>
             </div>
           </div>
+
+          {/* Received Files on PC (incoming-files) */}
+          {bridge?.files && bridge.files.length > 0 && (
+            <section style={{ marginBottom: '18px' }}>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UploadCloud size={18} color="#34d399" />
+                <span>קבצים שהתקבלו במחשב הנייח ({bridge.files.length})</span>
+              </h3>
+              {bridge.files.map((f) => (
+                <div key={f.id || f.name} className="glass-card card-accent-success" style={{ padding: '11px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Paperclip size={14} color="#34d399" />
+                        <span>{f.name}</span>
+                      </div>
+                      {f.savedPath && (
+                        <div className="font-mono-code" style={{ fontSize: '0.73rem', color: '#38bdf8', marginTop: '3px' }}>
+                          {f.savedPath}
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
+                      {formatRelativeTime(f.uploadedAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
 
           {/* Saved Links & Online Discoveries */}
           <section style={{ marginBottom: '18px' }}>
@@ -920,24 +1059,65 @@ export default function App() {
           {/* Messages & Agent Responses Feed */}
           <section>
             <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 800 }}>
-              פיד עדכונים והודעות בזמן אמת ({bridge?.messages?.length || 0})
+              פיד משימות, קבצים ועדכונים בזמן אמת ({bridge?.messages?.length || 0})
             </h3>
             {(bridge?.messages || []).map((msg) => {
               const isUser = msg.sender === 'tal';
-              const isClaude = msg.sender === 'claude';
               return (
                 <div
                   key={msg.id}
-                  className={`glass-card ${isUser ? 'card-accent-info' : isClaude ? 'card-accent-warning' : 'card-accent-success'}`}
+                  className={`glass-card ${isUser ? 'card-accent-info' : 'card-accent-success'}`}
                   style={{ padding: '12px 15px' }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>
-                    <strong style={{ color: isUser ? '#00f0ff' : isClaude ? '#e879f9' : '#34d399' }}>
-                      {isUser ? '👤 טל (מהנייד)' : isClaude ? '🧠 Claude (מחשב נייח)' : '🤖 פפוש (סוכן השיחה)'}
-                    </strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <strong style={{ color: isUser ? '#00f0ff' : '#34d399' }}>
+                        {isUser ? '👤 טל' : '🤖 פפוש (המנצח הראשי)'}
+                      </strong>
+                      {msg.claudeAssisted && (
+                        <span
+                          className="pill"
+                          style={{
+                            background: 'rgba(168, 85, 247, 0.2)',
+                            color: '#e879f9',
+                            border: '1px solid rgba(232, 121, 249, 0.4)',
+                            fontSize: '0.68rem',
+                            padding: '1px 7px'
+                          }}
+                        >
+                          בשיתוף Claude 🧠
+                        </span>
+                      )}
+                    </div>
                     <span>{formatRelativeTime(msg.timestamp)} ({formatTimeHM(msg.timestamp)})</span>
                   </div>
-                  <div style={{ fontSize: '0.88rem', color: '#f8fafc', lineHeight: 1.5 }}>{msg.text}</div>
+                  <div style={{ fontSize: '0.88rem', color: '#f8fafc', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+                    {msg.text}
+                  </div>
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                      {msg.attachments.map((att, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            background: 'rgba(0, 240, 255, 0.12)',
+                            border: '1px solid rgba(0, 240, 255, 0.3)',
+                            color: '#38bdf8',
+                            padding: '3px 9px',
+                            borderRadius: '8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700
+                          }}
+                        >
+                          <Paperclip size={12} />
+                          <span>{att.name}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

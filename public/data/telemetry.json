@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-11T09:41:58.995Z",
+  "updatedAt": "2026-11-11T09:48:05.461Z",
   "dismissedAlertIds": [],
   "dailyDigests": [
     {
@@ -8,7 +8,7 @@
       "category": "email",
       "title": "תקציר בוקר יומי • סידור מיילים (Gmail)",
       "scheduleLabel": "כל בוקר ב-08:00",
-      "updatedAt": "2026-11-11T09:41:58.991Z",
+      "updatedAt": "2026-11-11T09:48:05.451Z",
       "headline": "נסרקו ותויגו 82 מיילים בתיבה, סוננו 3 דיוורים פרסומיים חדשים ורוכזו ההודעות שדורשות התייחסות:",
       "badges": [
         {
@@ -87,7 +87,7 @@
       "schedule": "כל בוקר ב-08:00",
       "cron": "0 8 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-11T09:41:58.991Z",
+      "lastRunAt": "2026-11-11T09:48:05.451Z",
       "lastDurationMs": 2450,
       "totalRuns": 1,
       "repoPath": "https://mail.google.com",
@@ -133,7 +133,7 @@
       "schedule": "האזנה רציפה על המחשב + תזכורת ב-12 לחודש",
       "cron": "*/5 * * * *",
       "lastStatus": "info",
-      "lastRunAt": "2026-11-11T09:41:58.991Z",
+      "lastRunAt": "2026-11-11T09:48:05.451Z",
       "lastDurationMs": 0,
       "totalRuns": 0,
       "repoPath": "https://web.isracard.co.il",
@@ -147,7 +147,7 @@
       "schedule": "כל לילה ב-02:00",
       "cron": "0 2 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-11T09:41:58.991Z",
+      "lastRunAt": "2026-11-11T09:48:05.451Z",
       "lastDurationMs": 420,
       "totalRuns": 1,
       "repoPath": "C:\\Users\\fradk\\PROGRAMS",
@@ -180,7 +180,7 @@
       "name": "סידור וסיכום מיילים יומי - פפוש (Gmail)",
       "category": "email",
       "status": "success",
-      "timestamp": "2026-11-11T09:41:58.991Z",
+      "timestamp": "2026-11-11T09:48:05.451Z",
       "durationMs": 2450,
       "summary": "נסרקו ותויגו אוטומטית 82 מיילים (GitHub, אונ׳ פתוחה, קבלות ופיננסים), סוננו 3 דיוורים פרסומיים והופק תקציר יומי",
       "details": [
@@ -204,7 +204,7 @@
       "title": "תזכורת חודשית (ה-12 לחודש): ייבוא ONE ZERO וישראכרט",
       "message": "לקראת תכנון התקציב ב-15 לחודש: בישראכרט מספיק להתחבר בדפדפן במחשב וללחוץ על הסימנייה – הקובץ שירד לתיקיית ההורדות יישאב אוטומטית ל-DynamoDB! ב-ONE ZERO יש להוריד קובץ xls ולהעלות במסך הייבוא.",
       "actionHint": "מסך הייבוא בדשבורד: https://d2ezttw1p31agb.cloudfront.net",
-      "createdAt": "2026-11-11T09:41:58.991Z",
+      "createdAt": "2026-11-11T09:48:05.451Z",
       "resolved": false
     }
   ],
@@ -249,7 +249,7 @@
   "machine": {
     "hostname": "fradkin",
     "platform": "Windows_NT 10.0.26200 (x64)",
-    "uptimeHours": 37.4,
+    "uptimeHours": 37.5,
     "totalMemoryGb": 7.8,
     "freeMemoryGb": 1.7,
     "cpuModel": "Intel(R) Core(TM) i3-10110U CPU @ 2.10GHz",

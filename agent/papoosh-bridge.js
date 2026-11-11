@@ -4,30 +4,40 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, spawnSync } from 'child_process';
 import { PapooshReporter } from './papoosh-sdk.js';
-import { runClaudeTask, launchClaudeDesktopGui } from './ask-claude.js';
+import { runClaudeTask, launchClaudeDesktopGui, shouldConsultClaude } from './ask-claude.js';
 import { scanAndImportIsracardFiles } from './auto-import-downloads.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const bridgeFilePath = path.join(rootDir, 'public', 'data', 'bridge.json');
+const incomingFilesDir = 'C:\\Users\\fradk\\PROGRAMS\\papoosh-automations\\incoming-files';
+const downloadsDir = 'C:\\Users\\fradk\\Downloads';
 const PORT = Number(process.env.PAPOOSH_BRIDGE_PORT || 4041);
 
 export function loadBridgeState() {
   if (fs.existsSync(bridgeFilePath)) {
     try {
-      return JSON.parse(fs.readFileSync(bridgeFilePath, 'utf8'));
+      const parsed = JSON.parse(fs.readFileSync(bridgeFilePath, 'utf8'));
+      if (!parsed.files) parsed.files = [];
+      parsed.orchestratorMode = 'papoosh-primary-with-claude-subagent';
+      return parsed;
     } catch {
       // fallback below
     }
   }
   return {
     updatedAt: new Date().toISOString(),
+    orchestratorMode: 'papoosh-primary-with-claude-subagent',
+    incomingFilesDir,
     claudeStatus: {
       cliInstalled: true,
-      cliPath: 'C:\\Users\\fradk\\.vscode\\extensions\\anthropic.claude-code-2.1.322-win32-x64\\resources\\native-binary\\claude.exe',
+      role: 'עוזר עומק אוטומטי מנוהל על ידי פפוש (Antigravity)',
+      cliPath:
+        'C:\\Users\\fradk\\.vscode\\extensions\\anthropic.claude-code-2.1.322-win32-x64\\resources\\native-binary\\claude.exe',
       desktopInstallerPath: 'C:\\Users\\fradk\\Downloads\\Claude Setup.exe'
     },
+    files: [],
     links: [
       {
         id: 'link-finance-dashboard',
@@ -60,7 +70,7 @@ export function loadBridgeState() {
         sender: 'agent',
         target: 'tal',
         timestamp: new Date().toISOString(),
-        text: 'גשר PAPOOSH פעיל! סנכרון הכספים הראשוני (מקס, כאל, לאומי, דיסקונט) עבר בהצלחה מלאה (193 תנועות). עבור ישראכרט הפעלתי צופה אוטומטי על תיקיית ההורדות במחשב שייבא ל-DynamoDB כל קובץ JSON מהסימנייה ברגע שירד, וגם חיברתי את Claude CLI למערכת.'
+        text: 'גשר PAPOOSH פעיל! אני מקבל כאן את כל המשימות והקבצים שלך במרוכז (תמונות, PDF, JSON, XLS או מסמכים), שומר אותם בתיקיית incoming-files במחשב, ומפעיל אוטומטית גם את Claude כעוזר עומק מתי שצריך.'
       }
     ]
   };
@@ -68,18 +78,56 @@ export function loadBridgeState() {
 
 export function saveBridgeState(state, { syncToGit = false } = {}) {
   state.updatedAt = new Date().toISOString();
+  state.incomingFilesDir = incomingFilesDir;
   fs.mkdirSync(path.dirname(bridgeFilePath), { recursive: true });
   fs.writeFileSync(bridgeFilePath, JSON.stringify(state, null, 2) + '\n', 'utf8');
   if (syncToGit) {
     try {
       spawnSync('git', ['add', 'public/data/bridge.json', 'public/data/telemetry.json'], { cwd: rootDir });
-      spawnSync('git', ['commit', '-m', 'chore(bridge): sync live bridge messages and links'], { cwd: rootDir });
+      spawnSync('git', ['commit', '-m', 'chore(bridge): sync live bridge messages, files and links'], { cwd: rootDir });
       spawnSync('git', ['push', 'origin', 'main'], { cwd: rootDir });
     } catch {
       // ignore git errors
     }
   }
   return state;
+}
+
+/**
+ * Saves uploaded files (base64 encoded) from the Web App to `incoming-files/` on the PC.
+ */
+export function saveIncomingAttachments(attachments = []) {
+  if (!Array.isArray(attachments) || attachments.length === 0) return [];
+  fs.mkdirSync(incomingFilesDir, { recursive: true });
+
+  const saved = [];
+  for (const att of attachments) {
+    if (!att || !att.name || !att.contentBase64) continue;
+    const safeName = path.basename(att.name).replace(/[<>:"/\\|?*]+/g, '_');
+    const stampedName = `${Date.now()}-${safeName}`;
+    const targetPath = path.join(incomingFilesDir, stampedName);
+
+    const base64Clean = String(att.contentBase64).replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(base64Clean, 'base64');
+    fs.writeFileSync(targetPath, buffer);
+
+    // If the user uploaded an Isracard export JSON (`isracard-*.json`), also copy to Downloads so auto-importer picks it up
+    if (/^isracard-.*\.json$/i.test(safeName) && fs.existsSync(downloadsDir)) {
+      const dlCopy = path.join(downloadsDir, safeName);
+      fs.writeFileSync(dlCopy, buffer);
+    }
+
+    saved.push({
+      id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: safeName,
+      size: buffer.length,
+      type: att.type || 'application/octet-stream',
+      savedPath: targetPath,
+      uploadedAt: new Date().toISOString()
+    });
+  }
+
+  return saved;
 }
 
 export function addBridgeLink({ title, url, category = 'system', note = '', syncToGit = false }) {
@@ -96,13 +144,26 @@ export function addBridgeLink({ title, url, category = 'system', note = '', sync
   return saveBridgeState(state, { syncToGit });
 }
 
-export function addBridgeMessage({ sender = 'tal', target = 'agent', text, actionType = 'chat', syncToGit = false }) {
+export function addBridgeMessage({
+  sender = 'tal',
+  target = 'agent',
+  text,
+  attachments = [],
+  claudeAssisted = false,
+  actionType = 'task',
+  syncToGit = false
+}) {
   const state = loadBridgeState();
+  if (attachments && attachments.length > 0) {
+    state.files = [...attachments, ...(state.files || [])].slice(0, 50);
+  }
   const entry = {
-    id: `msg-${Date.now()}`,
+    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
     sender,
     target,
     actionType,
+    claudeAssisted,
+    attachments,
     timestamp: new Date().toISOString(),
     text
   };
@@ -131,12 +192,13 @@ function startLocalBridgeServer() {
     }
 
     if (req.method === 'POST' && req.url?.startsWith('/api/action')) {
-      let body = '';
-      req.on('data', (chunk) => (body += chunk));
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
       req.on('end', () => {
         try {
+          const body = Buffer.concat(chunks).toString('utf8');
           const payload = JSON.parse(body || '{}');
-          const { type, text, prompt, alertId } = payload;
+          const { type, text, prompt, alertId, attachments } = payload;
 
           if (type === 'dismiss-alert' && alertId) {
             const updatedTelemetry = PapooshReporter.dismissAlert(alertId, { syncToGit: true });
@@ -180,24 +242,55 @@ function startLocalBridgeServer() {
             return;
           }
 
-          if (type === 'ask-claude' && (prompt || text)) {
-            const q = prompt || text;
-            addBridgeMessage({ sender: 'tal', target: 'claude', text: q });
-            const claudeRes = runClaudeTask(q);
-            const updated = addBridgeMessage({
-              sender: 'claude',
-              target: 'tal',
-              text: claudeRes.output || claudeRes.error || 'המשימה בוצעה ב-Claude.'
-            });
-            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ ok: true, bridge: updated }));
-            return;
-          }
+          // Unified Task & File Receiver (All tasks go to Papoosh/Antigravity, which uses Claude when appropriate)
+          const savedFiles = saveIncomingAttachments(attachments || []);
+          const taskText = (text || prompt || '').trim();
 
-          if (text) {
-            const updated = addBridgeMessage({ sender: 'tal', target: 'agent', text });
+          if (taskText || savedFiles.length > 0) {
+            const fileNamesLabel = savedFiles.map((f) => f.name).join(', ');
+            const displayUserText =
+              taskText || `הועלו ${savedFiles.length} קבצים לגשר: ${fileNamesLabel}`;
+
+            let updated = addBridgeMessage({
+              sender: 'tal',
+              target: 'agent',
+              text: displayUserText,
+              attachments: savedFiles
+            });
+
+            // Check if an uploaded file is an Isracard export
+            if (savedFiles.some((f) => /^isracard-.*\.json$/i.test(f.name))) {
+              const importRes = scanAndImportIsracardFiles();
+              updated = addBridgeMessage({
+                sender: 'agent',
+                target: 'tal',
+                text: `קלטתי את קובץ ישראכרט שהעלית לגשר וביצעתי ייבוא אוטומטי ל-DynamoDB: ${importRes.summary}`
+              });
+            } else if (shouldConsultClaude(taskText, savedFiles)) {
+              // Automatically consult Claude as a deep-analysis sub-agent when warranted
+              try {
+                const claudeRes = runClaudeTask(taskText, { files: savedFiles });
+                if (claudeRes.output) {
+                  updated = addBridgeMessage({
+                    sender: 'agent',
+                    target: 'tal',
+                    claudeAssisted: true,
+                    text: `קיבלתי את המשימה${savedFiles.length ? ` ואת הקבצים (${fileNamesLabel})` : ''} ונעזרתי גם ב-Claude לניתוח עומק:\n${claudeRes.output}`
+                  });
+                }
+              } catch {
+                // If Claude CLI times out, Papoosh handles directly in conversation
+              }
+            } else if (savedFiles.length > 0) {
+              updated = addBridgeMessage({
+                sender: 'agent',
+                target: 'tal',
+                text: `הקבצים נשמרו במחשב בתיקיית incoming-files (${fileNamesLabel}) וזמינים עבורי לטיפול בשיחה.`
+              });
+            }
+
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ ok: true, bridge: updated }));
+            res.end(JSON.stringify({ ok: true, savedFiles, bridge: updated }));
             return;
           }
 
@@ -215,7 +308,7 @@ function startLocalBridgeServer() {
     res.end(JSON.stringify({ error: 'Not found' }));
   });
 
-  // Also watch C:\Users\fradk\Downloads every 30 seconds for any new `isracard-*.json` file
+  // Watch C:\Users\fradk\Downloads every 30 seconds for any new `isracard-*.json` file
   setInterval(() => {
     try {
       const res = scanAndImportIsracardFiles();
@@ -241,7 +334,7 @@ function startLocalBridgeServer() {
   }, 30000);
 
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[PAPOOSH Bridge] Listening on http://localhost:${PORT} and watching Downloads for Isracard files.`);
+    console.log(`[PAPOOSH Bridge] Listening on http://localhost:${PORT} (File Uploads + Unified Orchestrator + Isracard Watcher).`);
   });
 }
 
