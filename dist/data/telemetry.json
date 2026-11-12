@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-11T09:48:05.461Z",
+  "updatedAt": "2026-11-12T11:04:57.546Z",
   "dismissedAlertIds": [],
   "dailyDigests": [
     {
@@ -8,7 +8,7 @@
       "category": "email",
       "title": "תקציר בוקר יומי • סידור מיילים (Gmail)",
       "scheduleLabel": "כל בוקר ב-08:00",
-      "updatedAt": "2026-11-11T09:48:05.451Z",
+      "updatedAt": "2026-11-12T11:04:56.065Z",
       "headline": "נסרקו ותויגו 82 מיילים בתיבה, סוננו 3 דיוורים פרסומיים חדשים ורוכזו ההודעות שדורשות התייחסות:",
       "badges": [
         {
@@ -87,7 +87,7 @@
       "schedule": "כל בוקר ב-08:00",
       "cron": "0 8 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-11T09:48:05.451Z",
+      "lastRunAt": "2026-11-12T11:04:56.065Z",
       "lastDurationMs": 2450,
       "totalRuns": 1,
       "repoPath": "https://mail.google.com",
@@ -133,12 +133,12 @@
       "schedule": "האזנה רציפה על המחשב + תזכורת ב-12 לחודש",
       "cron": "*/5 * * * *",
       "lastStatus": "info",
-      "lastRunAt": "2026-11-11T09:48:05.451Z",
+      "lastRunAt": "2026-11-12T11:04:56.065Z",
       "lastDurationMs": 0,
       "totalRuns": 0,
       "repoPath": "https://web.isracard.co.il",
       "description": "בגלל חסימת Cloudflare בישראכרט: מתחברים בדפדפן הרגיל ולוחצים על הסימנייה. המחשב מזהה אוטומטית את קובץ ה-JSON שירד ל-Downloads ומייבא אותו ישירות ל-DynamoDB ללא צורך בהעלאה ידנית.",
-      "lastSummary": "תיקיית Downloads לא נמצאה"
+      "lastSummary": "ממתין לקובץ isracard-*.json בתיקיית ההורדות (נוצר בלחיצה על סימניית ישראכרט בדפדפן)"
     },
     {
       "id": "github-programs-sync",
@@ -147,7 +147,7 @@
       "schedule": "כל לילה ב-02:00",
       "cron": "0 2 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-11T09:48:05.451Z",
+      "lastRunAt": "2026-11-12T11:04:56.065Z",
       "lastDurationMs": 420,
       "totalRuns": 1,
       "repoPath": "C:\\Users\\fradk\\PROGRAMS",
@@ -180,7 +180,7 @@
       "name": "סידור וסיכום מיילים יומי - פפוש (Gmail)",
       "category": "email",
       "status": "success",
-      "timestamp": "2026-11-11T09:48:05.451Z",
+      "timestamp": "2026-11-12T11:04:56.065Z",
       "durationMs": 2450,
       "summary": "נסרקו ותויגו אוטומטית 82 מיילים (GitHub, אונ׳ פתוחה, קבלות ופיננסים), סוננו 3 דיוורים פרסומיים והופק תקציר יומי",
       "details": [
@@ -204,7 +204,7 @@
       "title": "תזכורת חודשית (ה-12 לחודש): ייבוא ONE ZERO וישראכרט",
       "message": "לקראת תכנון התקציב ב-15 לחודש: בישראכרט מספיק להתחבר בדפדפן במחשב וללחוץ על הסימנייה – הקובץ שירד לתיקיית ההורדות יישאב אוטומטית ל-DynamoDB! ב-ONE ZERO יש להוריד קובץ xls ולהעלות במסך הייבוא.",
       "actionHint": "מסך הייבוא בדשבורד: https://d2ezttw1p31agb.cloudfront.net",
-      "createdAt": "2026-11-11T09:48:05.451Z",
+      "createdAt": "2026-11-12T11:04:56.065Z",
       "resolved": false
     }
   ],
@@ -249,9 +249,9 @@
   "machine": {
     "hostname": "fradkin",
     "platform": "Windows_NT 10.0.26200 (x64)",
-    "uptimeHours": 37.5,
+    "uptimeHours": 19.2,
     "totalMemoryGb": 7.8,
-    "freeMemoryGb": 1.7,
+    "freeMemoryGb": 2.8,
     "cpuModel": "Intel(R) Core(TM) i3-10110U CPU @ 2.10GHz",
     "cpuCores": 4,
     "status": "online"

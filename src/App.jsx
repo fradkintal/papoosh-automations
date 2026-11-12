@@ -31,6 +31,7 @@ import {
   UploadCloud
 } from 'lucide-react';
 import { APP_VERSION } from './version.js';
+import { CLOUD_BRIDGE_URL } from './cloudBridgeConfig.js';
 
 const CATEGORY_META = {
   all: { label: 'הכל', icon: Layers, color: '#00f0ff', bg: 'rgba(0, 240, 255, 0.14)' },
@@ -130,25 +131,41 @@ export default function App() {
     setIsRefreshing(true);
     const cacheBuster = `t=${Date.now()}`;
 
-    // 1. Try local PC bridge first (if on home network or localhost)
-    let fetchedFromLocal = false;
+    // 1. Try AWS HTTPS Cloud Bridge first (works from iPhone on 5G/Wi-Fi and Desktop)
+    let fetchedFromLiveBridge = false;
     try {
-      const localRes = await fetch(`http://localhost:4041/api/status?${cacheBuster}`, { cache: 'no-store' });
-      if (localRes.ok) {
-        const payload = await localRes.json();
+      const cloudRes = await fetch(`${CLOUD_BRIDGE_URL}?${cacheBuster}`, { cache: 'no-store' });
+      if (cloudRes.ok) {
+        const payload = await cloudRes.json();
         if (payload.telemetry) setTelemetry(payload.telemetry);
         if (payload.bridge) setBridge(payload.bridge);
         setLocalBridgeOnline(true);
-        fetchedFromLocal = true;
+        fetchedFromLiveBridge = true;
       }
     } catch {
-      setLocalBridgeOnline(false);
+      // Fallback to localhost or static JSON below
     }
 
-    // 2. Fetch from hosted JSON files with cache-busting
+    // 2. Try local PC bridge if Cloud Bridge wasn't reachable
+    if (!fetchedFromLiveBridge) {
+      try {
+        const localRes = await fetch(`http://localhost:4041/api/status?${cacheBuster}`, { cache: 'no-store' });
+        if (localRes.ok) {
+          const payload = await localRes.json();
+          if (payload.telemetry) setTelemetry(payload.telemetry);
+          if (payload.bridge) setBridge(payload.bridge);
+          setLocalBridgeOnline(true);
+          fetchedFromLiveBridge = true;
+        }
+      } catch {
+        setLocalBridgeOnline(false);
+      }
+    }
+
+    // 3. Fallback to static hosted JSON files
     const candidateBaseUrls = ['./', 'https://fradkintal.github.io/papoosh-automations/'];
 
-    if (!fetchedFromLocal) {
+    if (!fetchedFromLiveBridge) {
       for (const base of candidateBaseUrls) {
         try {
           const res = await fetch(`${base}data/telemetry.json?${cacheBuster}`, { cache: 'no-store' });
@@ -241,13 +258,22 @@ export default function App() {
       showToast('ההתראה סומנה כטופלה והוסרה מהמסך ✓');
 
       try {
+        await fetch(CLOUD_BRIDGE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'dismiss-alert', alertId })
+        });
+      } catch {
+        // Ignore cloud error
+      }
+      try {
         await fetch('http://localhost:4041/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: 'dismiss-alert', alertId })
         });
       } catch {
-        // Local bridge not reachable (away from home Wi-Fi); localStorage already persists dismissal on phone
+        // Local bridge not reachable
       }
     },
     [dismissedAlertIds, telemetry, showToast]
@@ -286,24 +312,27 @@ export default function App() {
   const handleSendBridgeAction = async (type, customText = '') => {
     setIsSendingInstruction(true);
     const attachmentsToSend = type === 'task' ? selectedFiles : [];
+    const payloadObj = {
+      type,
+      text: customText,
+      prompt: customText,
+      attachments: attachmentsToSend
+    };
+
+    // 1. Send over HTTPS to AWS Cloud Bridge (works from iPhone anywhere + persists in S3)
     try {
-      const res = await fetch('http://localhost:4041/api/action', {
+      const cloudRes = await fetch(CLOUD_BRIDGE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type,
-          text: customText,
-          prompt: customText,
-          attachments: attachmentsToSend
-        })
+        body: JSON.stringify(payloadObj)
       });
-      if (res.ok) {
-        const data = await res.json();
+      if (cloudRes.ok) {
+        const data = await cloudRes.json();
         if (data.bridge) setBridge(data.bridge);
         showToast(
           attachmentsToSend.length > 0
-            ? `המשימה ו-${attachmentsToSend.length} קבצים נשמרו במחשב הנייח!`
-            : 'המשימה התקבלה ובוצעה במחשב הנייח!'
+            ? `הבקשה ו-${attachmentsToSend.length} קבצים נשלחו לענן ולמחשב הנייח!`
+            : 'הבקשה נשלחה לענן ונקלטה במחשב הנייח!'
         );
         setInstructionText('');
         if (type === 'task') setSelectedFiles([]);
@@ -311,7 +340,27 @@ export default function App() {
         return;
       }
     } catch {
-      // Fallback if away from home Wi-Fi
+      // Fallback to localhost below
+    }
+
+    // 2. Fallback to localhost if on PC directly
+    try {
+      const res = await fetch('http://localhost:4041/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadObj)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bridge) setBridge(data.bridge);
+        showToast('המשימה התקבלה ובוצעה במחשב הנייח!');
+        setInstructionText('');
+        if (type === 'task') setSelectedFiles([]);
+        setIsSendingInstruction(false);
+        return;
+      }
+    } catch {
+      // Fallback
     }
 
     const fallbackAttachments = attachmentsToSend.map((f) => ({
@@ -484,7 +533,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: '#34d399', fontWeight: 700 }}>
                   <span className="pulse-dot" />
-                  {localBridgeOnline ? 'גשר מקומי חי (4041)' : `מחשב: ${telemetry?.machine?.hostname || 'פעיל'}`}
+                  {localBridgeOnline ? 'גשר ענן דו-כיווני חי (AWS HTTPS)' : `מחשב: ${telemetry?.machine?.hostname || 'פעיל'}`}
                 </span>
                 <span
                   style={{

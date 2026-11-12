@@ -8,6 +8,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const telemetryPath = path.join(rootDir, 'public', 'data', 'telemetry.json');
+export const CLOUD_BRIDGE_URL = 'https://4lpj3tesmjhlwoieldrxrt6kje0wkswr.lambda-url.eu-central-1.on.aws/';
+export const CLOUD_BRIDGE_BUCKET = 'papoosh-bridge-904610892841';
+export const CLOUD_BRIDGE_REGION = 'eu-central-1';
 
 export class PapooshReporter {
   static loadTelemetry() {
@@ -26,7 +29,18 @@ export class PapooshReporter {
     };
   }
 
-  static saveTelemetry(data, { syncToGit = false } = {}) {
+  static syncFileToCloudS3(localFilePath, s3Key) {
+    try {
+      execSync(
+        `aws s3 cp "${localFilePath}" s3://${CLOUD_BRIDGE_BUCKET}/${s3Key} --profile default --region ${CLOUD_BRIDGE_REGION}`,
+        { stdio: 'ignore', windowsHide: true }
+      );
+    } catch {
+      // Ignore if running in sandbox without AWS access
+    }
+  }
+
+  static saveTelemetry(data, { syncToGit = false, syncToCloud = true } = {}) {
     data.updatedAt = new Date().toISOString();
     data.machine = {
       hostname: os.hostname(),
@@ -39,10 +53,8 @@ export class PapooshReporter {
       status: 'online'
     };
 
-    // Keep only non-resolved alerts in telemetry
     data.alerts = (data.alerts || []).filter((al) => !al.resolved);
 
-    // Recompute summary counters
     const automations = data.automations || [];
     data.summary = {
       totalAutomations: automations.length,
@@ -55,6 +67,10 @@ export class PapooshReporter {
 
     fs.mkdirSync(path.dirname(telemetryPath), { recursive: true });
     fs.writeFileSync(telemetryPath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+
+    if (syncToCloud) {
+      this.syncFileToCloudS3(telemetryPath, 'state/telemetry.json');
+    }
 
     if (syncToGit) {
       try {
@@ -73,7 +89,7 @@ export class PapooshReporter {
     const data = this.loadTelemetry();
     data.alerts = (data.alerts || []).filter((al) => al.id !== alertId);
     data.dismissedAlertIds = Array.from(new Set([...(data.dismissedAlertIds || []), alertId]));
-    return this.saveTelemetry(data, { syncToGit });
+    return this.saveTelemetry(data, { syncToGit, syncToCloud: true });
   }
 
   static reportRun({
@@ -147,6 +163,6 @@ export class PapooshReporter {
       ].slice(0, 30);
     }
 
-    return this.saveTelemetry(data, { syncToGit });
+    return this.saveTelemetry(data, { syncToGit, syncToCloud: true });
   }
 }

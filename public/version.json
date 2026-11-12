@@ -1,10 +1,18 @@
 {
-  "version": "1.1.2",
-  "buildNumber": 6,
-  "releasedAt": "2026-11-11T09:48:05.584Z",
+  "version": "1.2.0",
+  "buildNumber": 7,
+  "releasedAt": "2026-11-12T11:04:59.109Z",
   "environment": "production",
   "codename": "PAPOOSH Neon Core",
   "changelog": [
+    {
+      "version": "1.2.0",
+      "date": "2026-11-12",
+      "title": "חיבור גשר ענן דו-כיווני (AWS HTTPS Cloud Bridge) לקליטת בקשות וקבצים מהאייפון מכל מקום",
+      "highlights": [
+        "חיבור גשר ענן דו-כיווני (AWS HTTPS Cloud Bridge) לקליטת בקשות וקבצים מהאייפון מכל מקום"
+      ]
+    },
     {
       "version": "1.1.2",
       "date": "2026-11-11",
