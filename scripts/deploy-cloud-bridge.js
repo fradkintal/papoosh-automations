@@ -286,8 +286,8 @@ export const handler = async (event) => {
   let functionUrl = '';
   const corsConfig = JSON.stringify({
     AllowOrigins: ['*'],
-    AllowMethods: ['*'],
-    AllowHeaders: ['Content-Type', 'Authorization'],
+    AllowMethods: ['GET', 'POST', 'OPTIONS'],
+    AllowHeaders: ['content-type', 'authorization', 'accept', 'origin', 'x-requested-with'],
     MaxAge: 86400
   });
   const corsFile = path.join(rootDir, 'scripts', 'cors.json');

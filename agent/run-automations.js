@@ -410,7 +410,8 @@ function runRealChecks() {
     }
   ];
 
-  saveBridgeState(loadBridgeState());
+  // Do not overwrite cloud bridge.json from telemetry runner
+  saveBridgeState(loadBridgeState(), { syncToCloud: false });
 
   return PapooshReporter.saveTelemetry({
     updatedAt: nowIso,

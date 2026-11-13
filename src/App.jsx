@@ -131,6 +131,30 @@ export default function App() {
     setIsRefreshing(true);
     const cacheBuster = `t=${Date.now()}`;
 
+    // 0. Flush any offline-queued bridge payloads first
+    try {
+      const rawQueue = window.localStorage.getItem('papoosh_pending_bridge_queue_v1');
+      const queue = rawQueue ? JSON.parse(rawQueue) : [];
+      if (Array.isArray(queue) && queue.length > 0) {
+        const remaining = [];
+        for (const item of queue) {
+          try {
+            const flushRes = await fetch(CLOUD_BRIDGE_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+              body: JSON.stringify(item)
+            });
+            if (!flushRes.ok) remaining.push(item);
+          } catch {
+            remaining.push(item);
+          }
+        }
+        window.localStorage.setItem('papoosh_pending_bridge_queue_v1', JSON.stringify(remaining));
+      }
+    } catch {
+      // ignore queue flush error
+    }
+
     // 1. Try AWS HTTPS Cloud Bridge first (works from iPhone on 5G/Wi-Fi and Desktop)
     let fetchedFromLiveBridge = false;
     try {
@@ -260,7 +284,7 @@ export default function App() {
       try {
         await fetch(CLOUD_BRIDGE_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
           body: JSON.stringify({ type: 'dismiss-alert', alertId })
         });
       } catch {
@@ -319,11 +343,11 @@ export default function App() {
       attachments: attachmentsToSend
     };
 
-    // 1. Send over HTTPS to AWS Cloud Bridge (works from iPhone anywhere + persists in S3)
+    // 1. Send over HTTPS to AWS Cloud Bridge using CORS-safelisted text/plain (zero preflight in iOS Safari!)
     try {
       const cloudRes = await fetch(CLOUD_BRIDGE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
         body: JSON.stringify(payloadObj)
       });
       if (cloudRes.ok) {
@@ -360,7 +384,15 @@ export default function App() {
         return;
       }
     } catch {
-      // Fallback
+      // Save in offline queue so it will auto-send on next connection
+      try {
+        const rawQ = window.localStorage.getItem('papoosh_pending_bridge_queue_v1');
+        const q = rawQ ? JSON.parse(rawQ) : [];
+        q.push(payloadObj);
+        window.localStorage.setItem('papoosh_pending_bridge_queue_v1', JSON.stringify(q));
+      } catch {
+        // ignore
+      }
     }
 
     const fallbackAttachments = attachmentsToSend.map((f) => ({

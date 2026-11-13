@@ -1,6 +1,6 @@
 {
   "name": "papoosh-automations",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "private": true,
   "description": "PAPOOSH Automations - Personal Automation Command Center & Mobile Hub for Tal Fradkin",
   "type": "module",

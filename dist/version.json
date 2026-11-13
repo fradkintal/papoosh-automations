@@ -1,10 +1,18 @@
 {
-  "version": "1.2.0",
-  "buildNumber": 7,
-  "releasedAt": "2026-11-12T11:04:59.109Z",
+  "version": "1.2.1",
+  "buildNumber": 8,
+  "releasedAt": "2026-11-13T11:06:04.983Z",
   "environment": "production",
   "codename": "PAPOOSH Neon Core",
   "changelog": [
+    {
+      "version": "1.2.1",
+      "date": "2026-11-13",
+      "title": "תיקון שליחת POST ב-Safari באייפון (CORS Simple Request ללא Preflight) ותור גיבוי אוטומטי",
+      "highlights": [
+        "תיקון שליחת POST ב-Safari באייפון (CORS Simple Request ללא Preflight) ותור גיבוי אוטומטי"
+      ]
+    },
     {
       "version": "1.2.0",
       "date": "2026-11-12",
