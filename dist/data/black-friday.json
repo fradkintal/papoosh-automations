@@ -1,0 +1,110 @@
+{
+  "updatedAt": "2026-11-13T13:58:28.078Z",
+  "items": [
+    {
+      "id": "bf-espresso-machine",
+      "name": "אוטומציה 1: צייד מחירים — מכונת אספרסו פשוטה",
+      "productTitle": "מכונת אספרסו פשוטה ומומלצת (Nespresso Essenza Mini C30/D30 / Inissia)",
+      "forWho": "לבית",
+      "modelConfirmed": true,
+      "currentBestPriceIls": 399,
+      "officialImporterPriceIls": 494,
+      "targetBlackFridayPriceIls": 349,
+      "buyNowThresholdIls": 379,
+      "recommendationStatus": "מעקב פעיל • מתקרב למחיר יעד",
+      "cheapestStores": [
+        {
+          "name": "Zap השוואת מחירים (יבוא מקביל/חנויות קפה)",
+          "price": "399 ₪ – 430 ₪",
+          "url": "https://www.zap.co.il/models.aspx?sog=e-coffeemachine&db138939=138950"
+        },
+        {
+          "name": "KSP (מבצעי נובמבר / בלאק פריידי)",
+          "price": "449 ₪ – 490 ₪",
+          "url": "https://ksp.co.il/web/cat/273..459"
+        },
+        {
+          "name": "מחסני חשמל / LastPrice (יבואן רשמי + הטבת קפסולות)",
+          "price": "494 ₪ – 535 ₪",
+          "url": "https://www.payngo.co.il/kitchen-appliances/coffee-espresso-machines.html"
+        }
+      ],
+      "details": [
+        "☕ הדגם המומלץ ביותר בפשטות ובאמינות: Nespresso Essenza Mini (או DeLonghi Dedica EC685 ב-650 ₪ אם מעדיפים קפה טחון)",
+        "💰 מחיר נוכחי הכי זול שנמצא בישראל: 399 ₪ – 430 ₪ (ביבוא מקביל/מבצעי חנויות) | 494 ₪ ביבואן רשמי (כולל 30 קפסולות מתנה)",
+        "🎯 מחיר רצפה משוער בבלאק פריידי (הכי זול שיכול להיות): 349 ₪ – 379 ₪ (או 449 ₪ יבואן רשמי עם שובר קפסולות)",
+        "🚨 מתי האוטומציה תתריע לך לקנות מיד: ברגע שדגם Essenza Mini יורד ל-379 ₪ ומטה (או מארז עם מקציף ב-599 ₪ ומטה)!"
+      ]
+    },
+    {
+      "id": "bf-washing-machine",
+      "name": "אוטומציה 2: צייד מחירים — מכונת כביסה (בשבילי)",
+      "productTitle": "מכונת כביסה (ממתין לזיהוי הדגם המדויק מהתמונה שלך)",
+      "forWho": "בשבילי",
+      "modelConfirmed": false,
+      "currentBestPriceIls": 1690,
+      "officialImporterPriceIls": 1990,
+      "targetBlackFridayPriceIls": 1450,
+      "buyNowThresholdIls": 1550,
+      "recommendationStatus": "ממתין לתמונה (כיווץ תמונות מהאייפון תוקן!) + סריקת דגמים מובילים פעילה",
+      "cheapestStores": [
+        {
+          "name": "LastPrice (מבצעי בלאק פריידי מכונות כביסה)",
+          "price": "החל מ-1,390 ₪",
+          "url": "https://www.lastprice.co.il/%D7%9E%D7%9B%D7%95%D7%A0%D7%95%D7%AA-%D7%9B%D7%91%D7%99%D7%A1%D7%94"
+        },
+        {
+          "name": "מחסני חשמל (Payngo)",
+          "price": "החל מ-1,450 ₪",
+          "url": "https://www.payngo.co.il/white-appliances/washing-machines.html"
+        },
+        {
+          "name": "Zap השוואת מחירים",
+          "price": "השוואת כל החנויות",
+          "url": "https://www.zap.co.il/models.aspx?sog=e-washingmachine"
+        }
+      ],
+      "details": [
+        "📸 שלח שוב את תמונת מכונת הכביסה בגשר (או כאן בשיחה) — כיווץ תמונות אוטומטי הופעל כדי שהתמונה תעלה מהאייפון בשנייה!",
+        "💰 מחירי שוק נוכחיים לדגמי 8–9 ק\"ג המובילים (לפני נעילת דגם מהתמונה): Bosch סדרה 4/6: 1,890–2,390 ₪ | Samsung 8-9kg: 1,650–1,990 ₪ | LG AI DD: 1,790–2,150 ₪",
+        "🎯 מחיר רצפה משוער בבלאק פריידי: Bosch ב-1,590–1,750 ₪ | Samsung ב-1,390–1,550 ₪ | LG ב-1,490–1,650 ₪",
+        "🚨 מיד עם קבלת התמונה אנעל על הדגם המדויק ואקפיץ לך התראת \"קנה עכשיו!\" כשהוא יורד למחיר הרצפה שלו."
+      ]
+    },
+    {
+      "id": "bf-mom-phone",
+      "name": "אוטומציה 3: צייד מחירים — טלפון לאמא",
+      "productTitle": "טלפון חכם לאמא (ממתין לזיהוי הדגם המדויק מהתמונה שלך)",
+      "forWho": "לאמא שלי",
+      "modelConfirmed": false,
+      "currentBestPriceIls": 1290,
+      "officialImporterPriceIls": 1450,
+      "targetBlackFridayPriceIls": 1090,
+      "buyNowThresholdIls": 1150,
+      "recommendationStatus": "ממתין לתמונה (כיווץ תמונות מהאייפון תוקן!) + סריקת דגמים מובילים פעילה",
+      "cheapestStores": [
+        {
+          "name": "KSP סלולר (מבצעי בלאק פריידי)",
+          "price": "מחירי יבואן רשמי ומקביל",
+          "url": "https://ksp.co.il/web/cat/272..573"
+        },
+        {
+          "name": "GoMobile / אייבורי (Ivory)",
+          "price": "המחירים הזולים בזאפ",
+          "url": "https://www.zap.co.il/models.aspx?sog=e-cellphone"
+        },
+        {
+          "name": "מחסני חשמל סלולר",
+          "price": "מבצעי נובמבר",
+          "url": "https://www.payngo.co.il/cellular-and-tablets/smartphones.html"
+        }
+      ],
+      "details": [
+        "📸 שלח שוב את תמונת הטלפון בגשר (או כאן בשיחה) כדי שאזהה אוטומטית את הדגם ונפח האחסון המדויק!",
+        "💰 מחירי שוק נוכחיים לדגמים הפופולריים לאמהות: Galaxy A55 5G: 1,320–1,520 ₪ | Galaxy A35 5G: 990–1,150 ₪ | Redmi Note 13 Pro: 950–1,150 ₪ | iPhone 15/16: 2,850–3,450 ₪",
+        "🎯 מחיר רצפה משוער בבלאק פריידי: Galaxy A55 ב-1,149 ₪ | Galaxy A35 ב-849 ₪ | Redmi Note 13 Pro ב-799 ₪ | iPhone 15 ב-2,590 ₪",
+        "🚨 ברגע שתעלה את התמונה אעדכן כאן את המחיר המדויק של הדגם ואת סף הקנייה המיידי."
+      ]
+    }
+  ]
+}

@@ -28,13 +28,15 @@ import {
   Bot,
   FileText,
   Paperclip,
-  UploadCloud
+  UploadCloud,
+  ShoppingBag
 } from 'lucide-react';
 import { APP_VERSION } from './version.js';
 import { CLOUD_BRIDGE_URL } from './cloudBridgeConfig.js';
 
 const CATEGORY_META = {
   all: { label: 'הכל', icon: Layers, color: '#00f0ff', bg: 'rgba(0, 240, 255, 0.14)' },
+  shopping: { label: 'קניות ובלאק פריידי', icon: ShoppingBag, color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.16)' },
   email: { label: 'מיילים ותקציר יומי', icon: Mail, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)' },
   finance: { label: 'כספים ובנקים', icon: Wallet, color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)' },
   calendar: { label: 'יומן ותזכורות', icon: Calendar, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.16)' },
@@ -307,24 +309,74 @@ export default function App() {
     const fileList = Array.from(e.target.files || []);
     if (fileList.length === 0) return;
 
-    const readPromises = fileList.map(
-      (file) =>
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
+    const readAndCompressFile = (file) =>
+      new Promise((resolve) => {
+        const isImage = /^image\//i.test(file.type || '') || /\.(jpg|jpeg|png|webp|heic)$/i.test(file.name || '');
+        const reader = new FileReader();
+        reader.onload = () => {
+          const rawDataUrl = String(reader.result || '');
+          if (!isImage) {
             resolve({
               name: file.name,
               size: file.size,
               type: file.type || 'application/octet-stream',
-              contentBase64: String(reader.result || '')
+              contentBase64: rawDataUrl
             });
-          };
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(file);
-        })
-    );
+            return;
+          }
 
-    const loaded = (await Promise.all(readPromises)).filter(Boolean);
+          // Compress & resize iPhone photos client-side (max 1400px JPEG @ 0.82) so multiple photos stay <300KB total
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const maxDim = 1400;
+              let { width, height } = img;
+              if (width > maxDim || height > maxDim) {
+                if (width >= height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+              const approxBytes = Math.round((compressedDataUrl.length * 3) / 4);
+              const normalizedName = file.name.replace(/\.(heic|png|webp)$/i, '.jpg');
+              resolve({
+                name: normalizedName,
+                size: approxBytes,
+                type: 'image/jpeg',
+                contentBase64: compressedDataUrl
+              });
+            } catch {
+              resolve({
+                name: file.name,
+                size: file.size,
+                type: file.type || 'image/jpeg',
+                contentBase64: rawDataUrl
+              });
+            }
+          };
+          img.onerror = () =>
+            resolve({
+              name: file.name,
+              size: file.size,
+              type: file.type || 'image/jpeg',
+              contentBase64: rawDataUrl
+            });
+          img.src = rawDataUrl;
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+
+    const loaded = (await Promise.all(fileList.map(readAndCompressFile))).filter(Boolean);
     setSelectedFiles((prev) => [...prev, ...loaded]);
     e.target.value = '';
   };
@@ -756,6 +808,168 @@ export default function App() {
               })}
             </section>
           )}
+
+          {/* Black Friday Price Hunter Cards (3 Dedicated Shopping Automations) */}
+          {(selectedCategory === 'all' || selectedCategory === 'shopping') &&
+            telemetry?.blackFridayItems &&
+            telemetry.blackFridayItems.length > 0 && (
+              <section style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h2 style={{ margin: 0, fontSize: '1.06rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShoppingBag size={19} color="#f43f5e" />
+                    <span>צייד מחירים ומבצעי Black Friday ({telemetry.blackFridayItems.length} אוטומציות פעילות)</span>
+                  </h2>
+                  <button
+                    className="btn-secondary"
+                    style={{ fontSize: '0.76rem', padding: '6px 11px' }}
+                    onClick={() => setActiveTab('bridge')}
+                  >
+                    <Paperclip size={13} color="#00f0ff" />
+                    <span>העלה תמונת מוצר בגשר</span>
+                  </button>
+                </div>
+
+                {telemetry.blackFridayItems.map((item) => {
+                  const isBuyNow = item.currentBestPriceIls <= item.buyNowThresholdIls;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`glass-card ${isBuyNow ? 'card-accent-success' : 'card-accent-warning'}`}
+                      style={{
+                        background: 'linear-gradient(155deg, rgba(19, 14, 36, 0.96), rgba(15, 23, 42, 0.94))',
+                        border: isBuyNow
+                          ? '1px solid rgba(16, 185, 129, 0.55)'
+                          : '1px solid rgba(244, 63, 94, 0.38)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span
+                            className="pill"
+                            style={{
+                              background: 'rgba(244, 63, 94, 0.18)',
+                              color: '#fb7185',
+                              border: '1px solid rgba(244, 63, 94, 0.45)'
+                            }}
+                          >
+                            <ShoppingBag size={13} />
+                            <span>{item.forWho}</span>
+                          </span>
+                          <span className={`pill ${item.modelConfirmed ? 'pill-success' : 'pill-info'}`}>
+                            {item.recommendationStatus}
+                          </span>
+                        </div>
+                        {isBuyNow && (
+                          <span className="pill pill-success" style={{ fontWeight: 900 }}>
+                            🔥 הגיע למחיר רצפה — מומלץ לקנות עכשיו!
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#ffffff', marginBottom: '4px' }}>
+                        {item.name}
+                      </div>
+                      <div style={{ fontSize: '0.88rem', color: '#fda4af', fontWeight: 700, marginBottom: '12px' }}>
+                        {item.productTitle}
+                      </div>
+
+                      {/* Price Comparison Grid */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                          gap: '8px',
+                          marginBottom: '12px'
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: 'rgba(4, 7, 17, 0.85)',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            borderRadius: '12px',
+                            padding: '9px 12px'
+                          }}
+                        >
+                          <div style={{ fontSize: '0.73rem', color: '#94a3b8' }}>מחיר הכי זול כעת בארץ</div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#38bdf8' }}>
+                            {item.currentBestPriceIls.toLocaleString('he-IL')} ₪
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>
+                            יבואן רשמי: ~{item.officialImporterPriceIls.toLocaleString('he-IL')} ₪
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            background: 'rgba(4, 7, 17, 0.85)',
+                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                            borderRadius: '12px',
+                            padding: '9px 12px'
+                          }}
+                        >
+                          <div style={{ fontSize: '0.73rem', color: '#a7f3d0' }}>מחיר רצפה משוער ב-Black Friday</div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#34d399' }}>
+                            {item.targetBlackFridayPriceIls.toLocaleString('he-IL')} ₪
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>המחיר הכי זול שיכול להיות</div>
+                        </div>
+
+                        <div
+                          style={{
+                            background: 'rgba(4, 7, 17, 0.85)',
+                            border: '1px solid rgba(244, 63, 94, 0.4)',
+                            borderRadius: '12px',
+                            padding: '9px 12px'
+                          }}
+                        >
+                          <div style={{ fontSize: '0.73rem', color: '#fecdd3' }}>טריגר התראת &quot;קנה עכשיו!&quot;</div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fb7185' }}>
+                            &le; {item.buyNowThresholdIls.toLocaleString('he-IL')} ₪
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>התראה מיידית בירידה לסף זה</div>
+                        </div>
+                      </div>
+
+                      {/* Details */}
+                      <div
+                        style={{
+                          background: 'rgba(4, 7, 17, 0.85)',
+                          borderRadius: '12px',
+                          padding: '10px 12px',
+                          border: '1px solid rgba(148, 163, 184, 0.16)',
+                          marginBottom: '10px'
+                        }}
+                      >
+                        {(item.details || []).map((line, i) => (
+                          <div key={i} style={{ fontSize: '0.83rem', color: '#e2e8f0', padding: '3px 0', lineHeight: 1.45 }}>
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Cheapest Store Links */}
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {(item.cheapestStores || []).map((st, idx) => (
+                          <a
+                            key={idx}
+                            href={st.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn-secondary"
+                            style={{ fontSize: '0.76rem', padding: '7px 11px' }}
+                          >
+                            <ExternalLink size={13} color="#00f0ff" />
+                            <span>
+                              {st.name} ({st.price})
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
 
           {/* Daily Summaries & Digests (תקצירים וסיכומים יומיים - כמו סידור המיילים) */}
           {filteredDigests.length > 0 && (

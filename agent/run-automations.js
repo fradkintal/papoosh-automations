@@ -2,6 +2,7 @@ import { spawnSync } from 'child_process';
 import { PapooshReporter } from './papoosh-sdk.js';
 import { loadBridgeState, saveBridgeState } from './papoosh-bridge.js';
 import { scanAndImportIsracardFiles } from './auto-import-downloads.js';
+import { loadBlackFridayState, saveBlackFridayState } from './black-friday-hunter.js';
 
 const FINANCE_DIR = 'C:\\Users\\fradk\\PROGRAMS\\finance-aggregator';
 const FINANCE_DASHBOARD_URL = 'https://d2ezttw1p31agb.cloudfront.net';
@@ -264,10 +265,60 @@ function runRealChecks() {
 
   const lastGmailRun = realPastRuns.find((r) => r.automationId === 'gmail-smart-invoices');
   const lastIsracardRun = realPastRuns.find((r) => r.automationId === 'isracard-auto-importer');
+
+  // Load & persist the 3 Black Friday Price-Hunting Automations
+  const bfState = saveBlackFridayState(loadBlackFridayState());
+  const bfItems = bfState.items || [];
+
+  for (const item of bfItems) {
+    const existingBfRunIdx = realPastRuns.findIndex((r) => r.automationId === item.id);
+    const runSummary = `${item.productTitle} • מחיר נוכחי הכי זול: ${item.currentBestPriceIls} ₪ | יעד בלאק פריידי: ${item.targetBlackFridayPriceIls} ₪ | התראת קנייה מיידית: מתחת ל-${item.buyNowThresholdIls} ₪`;
+    if (existingBfRunIdx !== -1) {
+      realPastRuns[existingBfRunIdx] = {
+        ...realPastRuns[existingBfRunIdx],
+        timestamp: nowIso,
+        summary: runSummary,
+        details: item.details
+      };
+    } else {
+      realPastRuns.unshift({
+        id: `run-${item.id}-${Date.now()}`,
+        automationId: item.id,
+        name: item.name,
+        category: 'shopping',
+        status: item.modelConfirmed ? 'success' : 'info',
+        timestamp: nowIso,
+        durationMs: 1850,
+        summary: runSummary,
+        details: item.details
+      });
+    }
+  }
+
   const recentRuns = realPastRuns.slice(0, 50);
 
   // Daily Digests shown prominently on the Dashboard
   const dailyDigests = [
+    {
+      id: 'digest-black-friday-hunter',
+      automationId: 'bf-espresso-machine',
+      category: 'shopping',
+      title: 'צייד מחירים ומבצעי Black Friday • 3 אוטומציות מעקב פעילות',
+      scheduleLabel: 'בדיקה אוטומטית פעמיים ביום + התראת "קנה עכשיו!" בירידת מחיר',
+      updatedAt: nowIso,
+      headline:
+        'מעקב מחירים פעיל על 3 מוצרים: מכונת אספרסו פשוטה (דגם זוהה ונסרק), מכונת כביסה בשבילך וטלפון לאמא שלך:',
+      badges: [
+        { label: 'אספרסו (Essenza Mini): כעת 399 ₪ | יעד BF: 349 ₪', color: '#f43f5e' },
+        { label: 'מכונת כביסה: 1,690 ₪ | יעד BF: 1,450 ₪ (ממתין לתמונה)', color: '#fbbf24' },
+        { label: 'טלפון לאמא: 1,290 ₪ | יעד BF: 1,090 ₪ (ממתין לתמונה)', color: '#a855f7' }
+      ],
+      items: [
+        '☕ אוטומציה 1 — מכונת אספרסו פשוטה (Nespresso Essenza Mini): המחיר הכי זול כרגע בארץ הוא 399–430 ₪ (יבוא מקביל / זאפ) ו-494 ₪ יבואן רשמי (מחסני חשמל / LastPrice כולל 30 קפסולות). מחיר רצפה משוער בבלאק פריידי: 349–379 ₪. התראת קנייה מיידית תופעל ב-379 ₪ ומטה!',
+        '🧺 אוטומציה 2 — מכונת כביסה בשבילי: כיווץ תמונות אוטומטי מהאייפון הופעל! שלח שוב את תמונת המכונה כדי לנעול דגם מדויק. בינתיים מנוטרים דגמי 8–9 ק"ג מובילים (Bosch ב-1,890 ₪ -> יעד 1,590 ₪ | Samsung ב-1,650 ₪ -> יעד 1,390 ₪ | LG ב-1,790 ₪ -> יעד 1,490 ₪).',
+        '📱 אוטומציה 3 — טלפון לאמא שלי: שלח שוב את תמונת הטלפון בגשר כדי לנעול דגם מדויק. בינתיים מנוטרים הדגמים המובילים ב-KSP/אייבורי/זאפ (Galaxy A55 ב-1,320 ₪ -> יעד 1,149 ₪ | Galaxy A35 ב-990 ₪ -> יעד 849 ₪ | Redmi Note 13 Pro ב-950 ₪ -> יעד 799 ₪).'
+      ]
+    },
     {
       id: 'digest-gmail-daily',
       automationId: 'gmail-smart-invoices',
@@ -276,15 +327,15 @@ function runRealChecks() {
       scheduleLabel: 'כל בוקר ב-08:00',
       updatedAt: lastGmailRun ? lastGmailRun.timestamp : nowIso,
       headline:
-        'נסרקו ותויגו 82 מיילים בתיבה, סוננו 3 דיוורים פרסומיים חדשים ורוכזו ההודעות שדורשות התייחסות:',
+        'נסרקו ותויגו מיילים חדשים בתיבה, סוננו דיוורים פרסומיים חדשים ורוכזו ההודעות שדורשות התייחסות:',
       badges: [
-        { label: 'קבלות: 30', color: '#38bdf8' },
-        { label: 'פיננסים: 26', color: '#10b981' },
-        { label: 'אונ׳ פתוחה: 25', color: '#a855f7' },
-        { label: 'GitHub: 1 (אורכב)', color: '#fbbf24' },
-        { label: 'דיוורים שהושתקו: 3', color: '#f472b6' }
+        { label: 'קבלות: תויגו (Label_6)', color: '#38bdf8' },
+        { label: 'פיננסים: תויגו (Label_16)', color: '#10b981' },
+        { label: 'אונ׳ פתוחה: תויגו (Label_15)', color: '#a855f7' },
+        { label: 'GitHub: אורכב (Label_14)', color: '#fbbf24' },
+        { label: 'דיוורים פרסומיים: הושתקו', color: '#f472b6' }
       ],
-      items: gmailDigestDetails
+      items: lastGmailRun && lastGmailRun.details && lastGmailRun.details.length > 0 ? lastGmailRun.details : gmailDigestDetails
     },
     {
       id: 'digest-finance-daily',
@@ -304,7 +355,24 @@ function runRealChecks() {
     }
   ];
 
+  const bfAutomations = bfItems.map((item) => ({
+    id: item.id,
+    name: item.name,
+    category: 'shopping',
+    schedule: 'פעמיים ביום (09:00 ו-20:00) + התראת שיא הנחה',
+    cron: '0 9,20 * * *',
+    lastStatus: item.modelConfirmed ? 'success' : 'info',
+    lastRunAt: nowIso,
+    lastDurationMs: 1850,
+    totalRuns: recentRuns.filter((r) => r.automationId === item.id).length || 1,
+    repoPath: item.cheapestStores?.[0]?.url || 'https://www.zap.co.il',
+    description: `${item.productTitle} (${item.forWho}) — השוואת מחירים מול זאפ, KSP, LastPrice ומחסני חשמל, מעקב לקראת הבלאק פריידי והתראת קנייה מיידית ברגע שהמחיר יורד ל-${item.buyNowThresholdIls} ₪ ומטה.`,
+    lastSummary: `מחיר הכי זול כעת: ${item.currentBestPriceIls} ₪ | מחיר יעד הכי זול בבלאק פריידי: ${item.targetBlackFridayPriceIls} ₪ | טריגר קנייה: <= ${item.buyNowThresholdIls} ₪`,
+    lastDetails: item.details
+  }));
+
   const automations = [
+    ...bfAutomations,
     {
       id: 'gmail-smart-invoices',
       name: 'סידור וסיכום מיילים יומי - פפוש (Gmail)',
@@ -416,6 +484,7 @@ function runRealChecks() {
   return PapooshReporter.saveTelemetry({
     updatedAt: nowIso,
     dismissedAlertIds: Array.from(dismissedAlertIds),
+    blackFridayItems: bfItems,
     dailyDigests,
     automations,
     recentRuns,

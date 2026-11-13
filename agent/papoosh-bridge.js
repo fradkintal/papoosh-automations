@@ -11,6 +11,7 @@ import {
 } from './papoosh-sdk.js';
 import { runClaudeTask, launchClaudeDesktopGui, shouldConsultClaude } from './ask-claude.js';
 import { scanAndImportIsracardFiles } from './auto-import-downloads.js';
+import { analyzeUploadedShoppingImages } from './black-friday-hunter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -269,6 +270,17 @@ export function pollCloudInbox() {
           sender: 'agent',
           text: guiRes.launched ? `הפעלתי את Claude במחשב (${guiRes.path}).` : 'לא נמצא קובץ הפעלה גרפי.'
         });
+      } else if (
+        downloadedFiles.some((f) => /\.(jpg|jpeg|png|webp|heic)$/i.test(f.name || f.savedPath || ''))
+      ) {
+        const visionAnalysis = analyzeUploadedShoppingImages(downloadedFiles, task.text || '');
+        if (visionAnalysis) {
+          addBridgeMessage({
+            sender: 'agent',
+            claudeAssisted: true,
+            text: `📸 זוהו התמונות שהעלית לצייד המחירים של בלאק פריידי:\n${visionAnalysis}`
+          });
+        }
       } else if (task.text && shouldConsultClaude(task.text, downloadedFiles)) {
         try {
           const claudeRes = runClaudeTask(task.text, { files: downloadedFiles });
@@ -382,6 +394,17 @@ function startLocalBridgeServer() {
               text: displayUserText,
               attachments: savedFiles
             });
+
+            if (savedFiles.some((f) => /\.(jpg|jpeg|png|webp|heic)$/i.test(f.name || f.savedPath || ''))) {
+              const visionAnalysis = analyzeUploadedShoppingImages(savedFiles, taskText);
+              if (visionAnalysis) {
+                updated = addBridgeMessage({
+                  sender: 'agent',
+                  claudeAssisted: true,
+                  text: `📸 זוהו התמונות שהעלית לצייד המחירים של בלאק פריידי:\n${visionAnalysis}`
+                });
+              }
+            }
 
             res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ ok: true, savedFiles, bridge: updated }));

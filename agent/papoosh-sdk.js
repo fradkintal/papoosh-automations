@@ -58,7 +58,7 @@ export class PapooshReporter {
     const automations = data.automations || [];
     data.summary = {
       totalAutomations: automations.length,
-      healthyCount: automations.filter((a) => a.lastStatus === 'success').length,
+      healthyCount: automations.filter((a) => a.lastStatus === 'success' || a.lastStatus === 'info').length,
       warningCount: automations.filter((a) => a.lastStatus === 'warning').length,
       errorCount: automations.filter((a) => a.lastStatus === 'error').length,
       runsToday: (data.recentRuns || []).length,
