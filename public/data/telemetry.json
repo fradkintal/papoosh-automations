@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-12T17:02:15.727Z",
+  "updatedAt": "2026-11-13T00:00:44.099Z",
   "dismissedAlertIds": [],
   "dailyDigests": [
     {
@@ -143,15 +143,26 @@
       "schedule": "כל לילה ב-02:00",
       "cron": "0 2 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-12T17:00:33.127Z",
-      "lastDurationMs": 420,
-      "totalRuns": 1,
+      "lastRunAt": "2026-11-13T00:00:44.098Z",
+      "lastDurationMs": 950,
+      "totalRuns": 2,
       "repoPath": "C:\\Users\\fradk\\PROGRAMS",
       "description": "מבצע git pull בלבד בלילה למאגרים האישיים בתיקיית PROGRAMS. ללא git push אוטומטי ב-finance-aggregator (מכיוון ש-push ל-main מפעיל פריסה לענן).",
-      "lastSummary": "מאגר finance-aggregator מעודכן מול origin/main."
+      "lastSummary": "בוצע git pull לילי ב-finance-aggregator: Already up to date."
     }
   ],
   "recentRuns": [
+    {
+      "id": "run-1794528044099-4puz",
+      "automationId": "github-programs-sync",
+      "name": "משיכת עדכונים לילית מ-GitHub (git pull בלבד)",
+      "category": "system",
+      "status": "success",
+      "timestamp": "2026-11-13T00:00:44.098Z",
+      "durationMs": 950,
+      "summary": "בוצע git pull לילי ב-finance-aggregator: Already up to date.",
+      "details": []
+    },
     {
       "id": "run-finance-1794388628898",
       "automationId": "finance-aggregator-sync",
@@ -245,9 +256,9 @@
   "machine": {
     "hostname": "fradkin",
     "platform": "Windows_NT 10.0.26200 (x64)",
-    "uptimeHours": 25.2,
+    "uptimeHours": 32.2,
     "totalMemoryGb": 7.8,
-    "freeMemoryGb": 2.6,
+    "freeMemoryGb": 2.4,
     "cpuModel": "Intel(R) Core(TM) i3-10110U CPU @ 2.10GHz",
     "cpuCores": 4,
     "status": "online"
@@ -257,7 +268,7 @@
     "healthyCount": 3,
     "warningCount": 0,
     "errorCount": 0,
-    "runsToday": 2,
+    "runsToday": 3,
     "openAlerts": 1
   }
 }
