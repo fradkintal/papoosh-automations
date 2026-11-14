@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-13T18:00:51.655Z",
+  "updatedAt": "2026-11-14T00:00:42.615Z",
   "dismissedAlertIds": [],
   "blackFridayItems": [
     {
@@ -115,7 +115,7 @@
       "category": "shopping",
       "title": "צייד מחירים ומבצעי Black Friday • 3 אוטומציות מעקב פעילות",
       "scheduleLabel": "בדיקה אוטומטית פעמיים ביום + התראת \"קנה עכשיו!\" בירידת מחיר",
-      "updatedAt": "2026-11-13T18:00:51.649Z",
+      "updatedAt": "2026-11-14T00:00:42.579Z",
       "headline": "מעקב מחירים פעיל על 3 מוצרים: מכונת אספרסו פשוטה (דגם זוהה ונסרק), מכונת כביסה בשבילך וטלפון לאמא שלך:",
       "badges": [
         {
@@ -143,7 +143,7 @@
       "category": "email",
       "title": "תקציר בוקר יומי • סידור מיילים (Gmail)",
       "scheduleLabel": "כל בוקר ב-08:00",
-      "updatedAt": "2026-11-13T18:00:51.649Z",
+      "updatedAt": "2026-11-14T00:00:42.579Z",
       "headline": "נסרקו ותויגו מיילים חדשים בתיבה, סוננו דיוורים פרסומיים חדשים ורוכזו ההודעות שדורשות התייחסות:",
       "badges": [
         {
@@ -222,7 +222,7 @@
       "schedule": "פעמיים ביום (09:00 ו-20:00) + התראת שיא הנחה",
       "cron": "0 9,20 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-13T18:00:51.649Z",
+      "lastRunAt": "2026-11-14T00:00:42.579Z",
       "lastDurationMs": 1850,
       "totalRuns": 1,
       "repoPath": "https://www.zap.co.il/models.aspx?sog=e-coffeemachine&db138939=138950",
@@ -242,7 +242,7 @@
       "schedule": "פעמיים ביום (09:00 ו-20:00) + התראת שיא הנחה",
       "cron": "0 9,20 * * *",
       "lastStatus": "info",
-      "lastRunAt": "2026-11-13T18:00:51.649Z",
+      "lastRunAt": "2026-11-14T00:00:42.579Z",
       "lastDurationMs": 1850,
       "totalRuns": 1,
       "repoPath": "https://www.lastprice.co.il/%D7%9E%D7%9B%D7%95%D7%A0%D7%95%D7%AA-%D7%9B%D7%91%D7%99%D7%A1%D7%94",
@@ -262,7 +262,7 @@
       "schedule": "פעמיים ביום (09:00 ו-20:00) + התראת שיא הנחה",
       "cron": "0 9,20 * * *",
       "lastStatus": "info",
-      "lastRunAt": "2026-11-13T18:00:51.649Z",
+      "lastRunAt": "2026-11-14T00:00:42.579Z",
       "lastDurationMs": 1850,
       "totalRuns": 1,
       "repoPath": "https://ksp.co.il/web/cat/272..573",
@@ -282,7 +282,7 @@
       "schedule": "כל בוקר ב-08:00",
       "cron": "0 8 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-13T18:00:51.649Z",
+      "lastRunAt": "2026-11-14T00:00:42.579Z",
       "lastDurationMs": 2450,
       "totalRuns": 1,
       "repoPath": "https://mail.google.com",
@@ -328,7 +328,7 @@
       "schedule": "האזנה רציפה על המחשב + תזכורת ב-12 לחודש",
       "cron": "*/5 * * * *",
       "lastStatus": "info",
-      "lastRunAt": "2026-11-13T18:00:51.649Z",
+      "lastRunAt": "2026-11-14T00:00:42.579Z",
       "lastDurationMs": 0,
       "totalRuns": 0,
       "repoPath": "https://web.isracard.co.il",
@@ -342,7 +342,7 @@
       "schedule": "כל לילה ב-02:00",
       "cron": "0 2 * * *",
       "lastStatus": "success",
-      "lastRunAt": "2026-11-13T18:00:51.649Z",
+      "lastRunAt": "2026-11-14T00:00:42.579Z",
       "lastDurationMs": 420,
       "totalRuns": 1,
       "repoPath": "C:\\Users\\fradk\\PROGRAMS",
@@ -357,7 +357,7 @@
       "name": "אוטומציה 3: צייד מחירים — טלפון לאמא",
       "category": "shopping",
       "status": "info",
-      "timestamp": "2026-11-13T18:00:51.649Z",
+      "timestamp": "2026-11-14T00:00:42.579Z",
       "durationMs": 1850,
       "summary": "טלפון חכם לאמא (ממתין לזיהוי הדגם המדויק מהתמונה שלך) • מחיר נוכחי הכי זול: 1290 ₪ | יעד בלאק פריידי: 1090 ₪ | התראת קנייה מיידית: מתחת ל-1150 ₪",
       "details": [
@@ -373,7 +373,7 @@
       "name": "אוטומציה 2: צייד מחירים — מכונת כביסה (בשבילי)",
       "category": "shopping",
       "status": "info",
-      "timestamp": "2026-11-13T18:00:51.649Z",
+      "timestamp": "2026-11-14T00:00:42.579Z",
       "durationMs": 1850,
       "summary": "מכונת כביסה (ממתין לזיהוי הדגם המדויק מהתמונה שלך) • מחיר נוכחי הכי זול: 1690 ₪ | יעד בלאק פריידי: 1450 ₪ | התראת קנייה מיידית: מתחת ל-1550 ₪",
       "details": [
@@ -389,7 +389,7 @@
       "name": "אוטומציה 1: צייד מחירים — מכונת אספרסו פשוטה",
       "category": "shopping",
       "status": "success",
-      "timestamp": "2026-11-13T18:00:51.649Z",
+      "timestamp": "2026-11-14T00:00:42.579Z",
       "durationMs": 1850,
       "summary": "מכונת אספרסו פשוטה ומומלצת (Nespresso Essenza Mini C30/D30 / Inissia) • מחיר נוכחי הכי זול: 399 ₪ | יעד בלאק פריידי: 349 ₪ | התראת קנייה מיידית: מתחת ל-379 ₪",
       "details": [
@@ -423,7 +423,7 @@
       "name": "סידור וסיכום מיילים יומי - פפוש (Gmail)",
       "category": "email",
       "status": "success",
-      "timestamp": "2026-11-13T18:00:51.649Z",
+      "timestamp": "2026-11-14T00:00:42.579Z",
       "durationMs": 2450,
       "summary": "נסרקו ותויגו אוטומטית 82 מיילים (GitHub, אונ׳ פתוחה, קבלות ופיננסים), סוננו 3 דיוורים פרסומיים והופק תקציר יומי",
       "details": [
@@ -447,7 +447,7 @@
       "title": "תזכורת חודשית (ה-12 לחודש): ייבוא ONE ZERO וישראכרט",
       "message": "לקראת תכנון התקציב ב-15 לחודש: בישראכרט מספיק להתחבר בדפדפן במחשב וללחוץ על הסימנייה – הקובץ שירד לתיקיית ההורדות יישאב אוטומטית ל-DynamoDB! ב-ONE ZERO יש להוריד קובץ xls ולהעלות במסך הייבוא.",
       "actionHint": "מסך הייבוא בדשבורד: https://d2ezttw1p31agb.cloudfront.net",
-      "createdAt": "2026-11-13T18:00:51.649Z",
+      "createdAt": "2026-11-14T00:00:42.579Z",
       "resolved": false
     }
   ],
@@ -492,9 +492,9 @@
   "machine": {
     "hostname": "fradkin",
     "platform": "Windows_NT 10.0.26200 (x64)",
-    "uptimeHours": 50.2,
+    "uptimeHours": 56.2,
     "totalMemoryGb": 7.8,
-    "freeMemoryGb": 2.3,
+    "freeMemoryGb": 2.1,
     "cpuModel": "Intel(R) Core(TM) i3-10110U CPU @ 2.10GHz",
     "cpuCores": 4,
     "status": "online"
